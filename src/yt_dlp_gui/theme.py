@@ -164,7 +164,9 @@ class ThemeColors:
     font_body_lg  = FONT_BODY_LG
     font_body_sm  = FONT_BODY_SM
     font_label    = FONT_LABEL
+    font_label_sm = FONT_LABEL_SM
     font_numeral  = FONT_NUMERAL
+    font_numeral_lg = FONT_NUMERAL_LG
 
 
 theme = ThemeColors()

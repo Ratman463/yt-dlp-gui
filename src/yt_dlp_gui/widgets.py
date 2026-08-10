@@ -76,7 +76,7 @@ class DangerButton(ctk.CTkButton):
         kwargs.setdefault("text", text)
         kwargs.setdefault("command", command)
         kwargs.setdefault("corner_radius", CORNER_RADIUS)
-        kwargs.setdefault("fg_color", theme.error)
+        kwargs.setdefault("fg_color", theme.error_text)
         kwargs.setdefault("hover_color", "#8b1515")
         kwargs.setdefault("text_color", theme.text_on_brass)
         kwargs.setdefault("font", theme.font_label)
