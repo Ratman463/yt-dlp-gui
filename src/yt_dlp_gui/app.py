@@ -54,17 +54,17 @@ class YtDlpGuiApp(ctk.CTk):
 
     def _build_ui(self):
         """Construct the main window layout."""
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(3, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # ─── Header ─────────────────────────────────────────────────────
-        header = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0, height=60)
-        header.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
-        header.grid_columnconfigure(1, weight=1)
-
-        # Etch line at the very top — 3px crimson
+        # ─── Etch line at the very top — 3px crimson ────────────────────
         ctk.CTkFrame(self, height=3, fg_color=theme.accent_crimson, corner_radius=0
-                     ).grid(row=0, column=0, sticky="new")
+                     ).grid(row=0, column=0, sticky="ew")
+
+        # ─── Header ─────────────────────────────────────────────────────
+        header = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        header.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
+        header.grid_columnconfigure(1, weight=1)
 
         # Title
         title_label = ctk.CTkLabel(
@@ -89,11 +89,11 @@ class YtDlpGuiApp(ctk.CTk):
 
         # ─── Divider ────────────────────────────────────────────────────
         ctk.CTkFrame(self, height=1, fg_color=theme.border_default, corner_radius=0
-                     ).grid(row=0, column=0, sticky="ew", pady=(57, 0))
+                     ).grid(row=2, column=0, sticky="ew")
 
         # ─── Download list (main area) ─────────────────────────────────
         list_frame = MonumentFrame(self, corner_radius=CORNER_RADIUS)
-        list_frame.grid(row=1, column=0, sticky="nsew", padx=16, pady=(8, 8))
+        list_frame.grid(row=3, column=0, sticky="nsew", padx=16, pady=(8, 8))
         list_frame.grid_rowconfigure(0, weight=1)
         list_frame.grid_columnconfigure(0, weight=1)
 
@@ -110,7 +110,7 @@ class YtDlpGuiApp(ctk.CTk):
 
         # ─── Footer — Log panel toggle ─────────────────────────────────
         footer = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0, height=32)
-        footer.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 8))
+        footer.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 8))
         footer.grid_columnconfigure(1, weight=1)
 
         EtchButton(footer, text="▼ LOG", width=80, height=28,
@@ -198,7 +198,7 @@ class YtDlpGuiApp(ctk.CTk):
         """Toggle the log panel visibility."""
         self._log_visible = not self._log_visible
         if self._log_visible:
-            self._log_frame.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 8))
+            self._log_frame.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 8))
         else:
             self._log_frame.grid_forget()
 

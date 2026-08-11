@@ -61,11 +61,18 @@ class AddDownloadDialog(ctk.CTkToplevel):
             border_color=theme.border_default, text_color=theme.text_primary,
             font=theme.font_body, border_width=1, height=40,
         )
-        self._url_entry.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._url_entry.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
 
         # ─── Section: Format ─────────────────────────────────────────────
-        self._add_section_header(content, "FORMAT", 2)
-        self._format_var = ctk.StringVar(value=self._config.get("format", FORMAT_PRESETS[2][1]))
+        self._add_section_header(content, "FORMAT", 3)
+        # Show the label (not the raw format string) as the initial selection
+        saved_format = self._config.get("format", FORMAT_PRESETS[2][1])
+        initial_format_label = "Custom"
+        for label, spec in FORMAT_PRESETS:
+            if spec == saved_format:
+                initial_format_label = label
+                break
+        self._format_var = ctk.StringVar(value=initial_format_label)
         self._format_menu = ctk.CTkOptionMenu(
             content, values=[p[0] for p in FORMAT_PRESETS],
             variable=self._format_var,
@@ -75,7 +82,7 @@ class AddDownloadDialog(ctk.CTkToplevel):
             text_color=theme.text_primary, font=theme.font_body,
             border_width=1, border_color=theme.border_default,
         )
-        self._format_menu.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._format_menu.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 4))
 
         # Custom format entry (hidden by default)
         self._custom_format_entry = ctk.CTkEntry(
@@ -84,17 +91,20 @@ class AddDownloadDialog(ctk.CTkToplevel):
             border_color=theme.border_default, text_color=theme.text_primary,
             font=theme.font_body, border_width=1, height=36,
         )
-        self._custom_format_entry.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._custom_format_entry.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 16))
         self._custom_format_entry.grid_remove()
+        if initial_format_label == "Custom":
+            self._custom_format_entry.grid()
+            self._custom_format_entry.insert(0, saved_format)
 
         # ─── Section: Subtitles ──────────────────────────────────────────
-        self._add_section_header(content, "SUBTITLES", 5)
+        self._add_section_header(content, "SUBTITLES", 7)
         self._write_subs_var = ctk.BooleanVar(value=self._config.get("write_subtitles", True))
         self._write_auto_var = ctk.BooleanVar(value=self._config.get("write_auto_subs", True))
         self._embed_subs_var = ctk.BooleanVar(value=self._config.get("embed_subtitles", True))
 
         chk_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
-        chk_frame.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 4))
+        chk_frame.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 4))
 
         for i, (text, var) in enumerate([
             ("Write subtitles", self._write_subs_var),
@@ -114,25 +124,25 @@ class AddDownloadDialog(ctk.CTkToplevel):
             border_color=theme.border_default, text_color=theme.text_primary,
             font=theme.font_body, border_width=1, height=36,
         )
-        self._subs_lang_entry.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._subs_lang_entry.grid(row=10, column=0, sticky="ew", padx=16, pady=(0, 16))
         self._subs_lang_entry.insert(0, self._config.get("subtitle_langs", "zh-Hans,zh-Hant,en,ja"))
 
         # ─── Section: Proxy ──────────────────────────────────────────────
-        self._add_section_header(content, "PROXY", 8)
+        self._add_section_header(content, "PROXY", 11)
         self._proxy_entry = ctk.CTkEntry(
             content, placeholder_text="socks5h://127.0.0.1:7897  (leave empty for direct)",
             corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
             border_color=theme.border_default, text_color=theme.text_primary,
             font=theme.font_body, border_width=1, height=36,
         )
-        self._proxy_entry.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._proxy_entry.grid(row=13, column=0, sticky="ew", padx=16, pady=(0, 16))
         if self._config.get("proxy"):
             self._proxy_entry.insert(0, self._config["proxy"])
 
         # ─── Section: Cookies ────────────────────────────────────────────
-        self._add_section_header(content, "COOKIES", 10)
+        self._add_section_header(content, "COOKIES", 14)
         cookies_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
-        cookies_frame.grid(row=11, column=0, sticky="ew", padx=16, pady=(0, 16))
+        cookies_frame.grid(row=16, column=0, sticky="ew", padx=16, pady=(0, 16))
         cookies_frame.grid_columnconfigure(0, weight=1)
 
         self._cookies_entry = ctk.CTkEntry(
@@ -150,9 +160,9 @@ class AddDownloadDialog(ctk.CTkToplevel):
                    command=self._browse_cookies).grid(row=0, column=1)
 
         # ─── Section: Save Path ──────────────────────────────────────────
-        self._add_section_header(content, "SAVE TO", 12)
+        self._add_section_header(content, "SAVE TO", 17)
         path_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
-        path_frame.grid(row=13, column=0, sticky="ew", padx=16, pady=(0, 16))
+        path_frame.grid(row=19, column=0, sticky="ew", padx=16, pady=(0, 16))
         path_frame.grid_columnconfigure(0, weight=1)
 
         self._path_entry = ctk.CTkEntry(
@@ -164,12 +174,11 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self._path_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         self._path_entry.insert(0, self._config.get("save_path", os.path.expanduser("~/Downloads")))
 
-        from .widgets import EtchButton
         EtchButton(path_frame, text="BROWSE", width=80, height=36,
                    command=self._browse_path).grid(row=0, column=1)
 
         # ─── Section: Player Client (Advanced) ──────────────────────────
-        self._add_section_header(content, "PLAYER CLIENT", 14)
+        self._add_section_header(content, "PLAYER CLIENT", 20)
         self._player_var = ctk.StringVar(value="Default (web)")
         self._player_menu = ctk.CTkOptionMenu(
             content, values=[p[0] for p in PLAYER_CLIENT_OPTIONS],
@@ -179,7 +188,7 @@ class AddDownloadDialog(ctk.CTkToplevel):
             text_color=theme.text_primary, font=theme.font_body,
             border_width=1, border_color=theme.border_default,
         )
-        self._player_menu.grid(row=15, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._player_menu.grid(row=22, column=0, sticky="ew", padx=16, pady=(0, 16))
 
         # ─── Footer — Action buttons ────────────────────────────────────
         footer = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0, height=60)
@@ -204,9 +213,9 @@ class AddDownloadDialog(ctk.CTkToplevel):
         )
         label.grid(row=row, column=0, sticky="w", padx=16, pady=(8, 2))
 
-        # Etch underline — 1px crimson line
+        # Etch underline — 1px crimson line (next row)
         line = ctk.CTkFrame(parent, height=1, fg_color=theme.accent_crimson, corner_radius=0)
-        line.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 4))
+        line.grid(row=row + 1, column=0, sticky="ew", padx=16, pady=(0, 4))
 
     def _on_format_change(self, value: str):
         """Show/hide custom format entry based on preset selection."""
