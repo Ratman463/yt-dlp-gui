@@ -31,10 +31,15 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self.configure(fg_color=theme.bg_primary)
         self.geometry("520x640")
         self.resizable(False, False)
-        self.grab_set()  # modal
 
         # Center on parent
         self.transient(master)
+        # Release any stale grab from a previous dialog, then take it.
+        try:
+            master.grab_release()
+        except Exception:
+            pass
+        self.grab_set()  # modal
 
         # ─── Main container ────────────────────────────────────────────────
         self.grid_rowconfigure(0, weight=0)
@@ -80,7 +85,6 @@ class AddDownloadDialog(ctk.CTkToplevel):
             corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
             button_color=theme.accent_brass, button_hover_color=theme.accent_crimson,
             text_color=theme.text_primary, font=theme.font_body,
-            border_width=1, border_color=theme.border_default,
         )
         self._format_menu.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 4))
 
@@ -186,7 +190,6 @@ class AddDownloadDialog(ctk.CTkToplevel):
             corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
             button_color=theme.accent_brass, button_hover_color=theme.accent_crimson,
             text_color=theme.text_primary, font=theme.font_body,
-            border_width=1, border_color=theme.border_default,
         )
         self._player_menu.grid(row=22, column=0, sticky="ew", padx=16, pady=(0, 16))
 
