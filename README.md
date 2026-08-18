@@ -12,15 +12,17 @@ Built with Python + CustomTkinter, following the **Neo-Esoteric Monument** desig
 
 ## ✦ Features
 
-- **Sequential download queue** — add multiple videos, they download one by one
+- **Sequential download queue** — add multiple videos, they download one by one; the queue keeps accepting tasks after it drains
+- **Per-task cancel & retry** — cancel a queued or active download without killing the rest of the queue; retry failed or cancelled tasks
 - **Full parameter control** — format, subtitles, proxy, cookies, save path
 - **Format presets** — 4K / 1080p / 720p / 480p / best, or custom format strings
+- **Playlist handling** — download a single video or the entire playlist
 - **Subtitle support** — write, auto-generate, embed subtitles with language selection
 - **Proxy support** — HTTP / SOCKS5 proxy for region-locked content
 - **Cookies import** — Netscape cookies.txt for authenticated content
 - **JS runtime** — automatic Node.js detection for YouTube challenge solving
-- **Config persistence** — remembers your proxy, path, and format preferences
-- **Log panel** — expandable log viewer for debugging
+- **Config persistence** — remembers your proxy, path, format, and subtitle preferences
+- **Log panel** — yt-dlp output routed into the GUI log viewer with per-task tags
 - **Player client selection** — web, TV, Android, iOS client options
 
 ## ✦ Screenshots
@@ -91,6 +93,8 @@ src/yt_dlp_gui/
 ├── downloader.py        # yt-dlp Python API wrapper + queue manager
 ├── theme.py             # NEO_ESOTERIC_MONUMENT design tokens
 └── widgets.py           # Custom widgets (BrassButton, EtchButton, etc.)
+conftest.py              # Makes src/ importable for tests
+tests/                   # 57 unit tests + network-gated integration tests
 ```
 
 ## ✦ Building

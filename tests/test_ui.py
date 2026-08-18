@@ -88,16 +88,14 @@ def test_log_panel_hidden_initially(app):
 # ─── Add Download dialog ─────────────────────────────────────────────────
 
 @pytest.fixture
-def dialog(app):
-    """Open the Add Download dialog and yield it."""
+def dialog(app, monkeypatch):
+    """Open the Add Download dialog against a pristine default config."""
     from yt_dlp_gui.dialogs import AddDownloadDialog
-    from yt_dlp_gui.config import load_config
-    cfg = load_config()
-    # Release any stale grab left by a previous dialog so grab_set() works.
-    try:
-        app.grab_release()
-    except Exception:
-        pass
+    from yt_dlp_gui import config as cfg_mod
+    # Isolate from the developer's real config file.
+    monkeypatch.setattr(cfg_mod, "CONFIG_DIR", None)
+    monkeypatch.setattr(cfg_mod, "CONFIG_FILE", None)
+    cfg = dict(cfg_mod.DEFAULT_CONFIG)
     d = AddDownloadDialog(app, cfg, on_submit=lambda r: None)
     d.withdraw()  # keep hidden for headless test
     # Pump events so children are laid out
@@ -208,6 +206,7 @@ def test_dialog_submit_returns_all_fields(dialog):
 def test_dialog_submit_format_preset_resolves(dialog):
     """Selecting the '1080p' preset should resolve to the correct format string."""
     from yt_dlp_gui.config import FORMAT_PRESETS
+    dialog._url_entry.insert(0, "https://www.youtube.com/watch?v=x")
     dialog._format_var.set("1080p")
     dialog._on_format_change("1080p")
     captured = []
@@ -220,6 +219,7 @@ def test_dialog_submit_format_preset_resolves(dialog):
 
 def test_dialog_submit_custom_format(dialog):
     """If user picks Custom and types a format string, that string is used."""
+    dialog._url_entry.insert(0, "https://www.youtube.com/watch?v=x")
     dialog._format_var.set("Custom")
     dialog._on_format_change("Custom")
     dialog._custom_format_entry.insert(0, "bestaudio/best")
@@ -227,6 +227,22 @@ def test_dialog_submit_custom_format(dialog):
     dialog._on_submit = lambda r: captured.append(r)
     dialog._on_submit_click()
     assert captured[0]["format_spec"] == "bestaudio/best"
+
+
+def test_dialog_submit_requires_url(dialog, monkeypatch):
+    """Submitting with an empty URL must not call the callback nor close."""
+    from yt_dlp_gui import dialogs as dialogs_mod
+    shown = []
+    monkeypatch.setattr(
+        dialogs_mod.messagebox, "showwarning",
+        lambda *a, **k: shown.append(a),
+    )
+    captured = []
+    dialog._on_submit = lambda r: captured.append(r)
+    dialog._on_submit_click()  # URL is empty
+    assert not captured, "submit fired without a URL"
+    assert shown, "no warning was shown for the empty URL"
+    assert dialog.winfo_exists(), "dialog closed despite validation error"
 
 
 def test_dialog_cancel_returns_none(dialog):

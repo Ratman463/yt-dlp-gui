@@ -7,14 +7,18 @@ deep crimson etch lines, matte brass accents, strictly rectangular.
 
 from __future__ import annotations
 
-import os
 import threading
 import customtkinter as ctk
 from tkinter import messagebox
 
 from .theme import theme, CORNER_RADIUS, apply_theme
 from .config import load_config, save_config
-from .downloader import Downloader, DownloadManager, DownloadState, ProgressInfo
+from .downloader import (
+    DownloadManager,
+    DownloadState,
+    ProgressInfo,
+    ACTIVE_STATES,
+)
 from .widgets import (
     MonumentFrame, MonumentScrollableFrame,
     BrassButton, EtchButton, DangerButton,
@@ -22,6 +26,20 @@ from .widgets import (
     DownloadItemWidget,
 )
 from .dialogs import AddDownloadDialog
+
+# Keys copied straight from dialog params into the persisted config.
+_CONFIG_FROM_PARAMS = {
+    "save_path": "save_path",
+    "proxy": "proxy",
+    "cookies_path": "cookies_path",
+    "subtitle_langs": "subtitle_langs",
+    "write_subtitles": "write_subtitles",
+    "write_auto_subs": "write_auto_subs",
+    "embed_subtitles": "embed_subtitles",
+    "player_client": "player_client",
+    "download_playlist": "download_playlist",
+    "format_spec": "format",
+}
 
 
 class YtDlpGuiApp(ctk.CTk):
@@ -31,8 +49,9 @@ class YtDlpGuiApp(ctk.CTk):
         super().__init__()
 
         self._config = load_config()
-        self._download_items: dict[str, DownloadItemWidget] = {}
-        self._task_params: dict[str, dict] = {}  # url -> params for retry
+        self._download_items: dict[str, DownloadItemWidget] = {}  # task_id -> widget
+        self._task_params: dict[str, dict] = {}                    # task_id -> params
+        self._last_log_pct: dict[str, float] = {}                  # log throttling
 
         # ─── Window config ──────────────────────────────────────────────
         self.title("YT-DLP-GUI")
@@ -40,9 +59,11 @@ class YtDlpGuiApp(ctk.CTk):
         self.geometry("800x600")
         self.minsize(640, 480)
 
-        # ─── Downloader setup ───────────────────────────────────────────
-        self._downloader = Downloader(on_progress=self._on_progress)
-        self._manager = DownloadManager(self._downloader)
+        # ─── Manager setup ──────────────────────────────────────────────
+        self._manager = DownloadManager(
+            on_event=self._on_progress,
+            on_log=self._on_log,
+        )
 
         # ─── Build UI ────────────────────────────────────────────────────
         self._build_ui()
@@ -144,55 +165,62 @@ class YtDlpGuiApp(ctk.CTk):
         if not url:
             return
 
-        # Save relevant settings for next time
-        self._config["save_path"] = params.get("save_path", self._config["save_path"])
-        self._config["proxy"] = params.get("proxy", "")
-        self._config["cookies_path"] = params.get("cookies_path", "")
-        self._config["subtitle_langs"] = params.get("subtitle_langs", "")
+        # Validate / backfill the save path — an empty outtmpl would write
+        # straight to the filesystem root.
+        save_path = (params.get("save_path") or "").strip() or self._config.get("save_path", "")
+        if not save_path:
+            messagebox.showerror(
+                "Missing save path",
+                "No download folder is set. Please choose one in the add dialog.",
+            )
+            return
+        params["save_path"] = save_path
+
+        # Persist the full set of preferences for next time.
+        for src_key, cfg_key in _CONFIG_FROM_PARAMS.items():
+            if src_key in params:
+                self._config[cfg_key] = params[src_key]
         save_config(self._config)
 
         # Hide empty state
         self._empty_label.grid_remove()
 
-        # Store params for retry
-        self._task_params[url] = params
+        # Queue the task first so it gets a stable id...
+        task_id = self._manager.submit(params)
+        self._task_params[task_id] = params
 
-        # Create download item widget
+        # ...then build its row.
         item = DownloadItemWidget(
-            self._scrollable, url,
+            self._scrollable, task_id, url,
             on_cancel=self._cancel_download,
             on_retry=self._retry_download,
         )
-        self._download_items[url] = item
+        self._download_items[task_id] = item
         item.grid(sticky="ew", padx=4, pady=2)
 
-        # Start download in background
-        self._manager.add(params)
-        self._manager.start()
-        self._status_label.configure(text=f"DOWNLOADING — {len(self._download_items)} IN QUEUE")
+        self._update_status()
 
-    def _cancel_download(self, url: str):
-        """Cancel a specific download."""
-        self._manager.cancel_current()
-        if url in self._download_items:
-            item = self._download_items[url]
-            item.update_progress(ProgressInfo(state=DownloadState.CANCELLED, title=url))
+    def _cancel_download(self, task_id: str):
+        """Cancel a specific task (queued or current)."""
+        self._manager.cancel(task_id)
 
-    def _retry_download(self, url: str):
-        """Retry a failed download."""
-        if url in self._task_params:
-            params = self._task_params[url]
-            # Remove old widget
-            if url in self._download_items:
-                self._download_items[url].destroy()
-                del self._download_items[url]
-            # Re-add
-            self._add_download(params)
+    def _retry_download(self, task_id: str):
+        """Retry a failed or cancelled task by re-submitting its params."""
+        params = self._task_params.get(task_id)
+        if params is None:
+            return
+        # Drop the old row; _add_download creates a fresh task.
+        item = self._download_items.pop(task_id, None)
+        if item is not None:
+            item.destroy()
+        self._task_params.pop(task_id, None)
+        self._last_log_pct.pop(task_id, None)
+        self._add_download(dict(params))
 
     def _stop_all(self):
         """Cancel all downloads."""
         self._manager.cancel_all()
-        self._status_label.configure(text="STOPPED")
+        self._update_status()
 
     def _toggle_log(self):
         """Toggle the log panel visibility."""
@@ -202,36 +230,79 @@ class YtDlpGuiApp(ctk.CTk):
         else:
             self._log_frame.grid_forget()
 
-    # ─── Progress callback (thread-safe) ───────────────────────────────────
+    # ─── Status ──────────────────────────────────────────────────────────────
 
-    def _on_progress(self, url: str, info: ProgressInfo):
-        """Called from downloader thread — schedule UI update on main thread."""
-        self.after(0, self._update_item, url, info)
+    def _update_status(self):
+        """Recompute the status caption from current widget states."""
+        states = [w.state for w in self._download_items.values()]
+        active = sum(1 for s in states if s in ACTIVE_STATES)
+        errors = sum(1 for s in states if s == DownloadState.ERROR)
+        cancelled = sum(1 for s in states if s == DownloadState.CANCELLED)
+        finished = sum(1 for s in states if s == DownloadState.FINISHED)
 
-    def _update_item(self, url: str, info: ProgressInfo):
+        if active > 0:
+            text = f"DOWNLOADING — {active} ACTIVE"
+        elif errors > 0:
+            text = "ERROR — CHECK LOG"
+        elif cancelled > 0 and finished == 0:
+            text = "STOPPED"
+        elif states:
+            text = "ALL DOWNLOADS COMPLETE"
+        else:
+            text = "READY"
+        self._status_label.configure(text=text)
+
+    # ─── Callbacks (thread-safe scheduling) ──────────────────────────────────
+
+    def _on_progress(self, task_id: str, url: str, info: ProgressInfo):
+        """Called from manager threads — schedule UI update on main thread."""
+        try:
+            self.after(0, self._update_item, task_id, info)
+        except Exception:
+            # Window is being destroyed — drop the event instead of
+            # crashing the worker thread.
+            pass
+
+    def _on_log(self, task_id: str, line: str):
+        """Called from downloader threads — schedule log append on main thread."""
+        try:
+            self.after(0, self._log, f"[#{task_id[:4]}] {line}")
+        except Exception:
+            pass
+
+    def _update_item(self, task_id: str, info: ProgressInfo):
         """Update a download item widget on the main thread."""
-        # Log
+        # Log — throttle the per-percent spam to one line every 5%.
         if info.state == DownloadState.ERROR:
-            self._log(f"[ERROR] {url}: {info.error_message}")
+            self._log(f"[#{task_id[:4]}][ERROR] {info.error_message}")
         elif info.state == DownloadState.FINISHED:
-            self._log(f"[DONE] {info.title}")
+            self._log(f"[#{task_id[:4]}][DONE] {info.title}")
         elif info.state == DownloadState.DOWNLOADING:
-            self._log(f"[{info.percent:.1f}%] {info.speed} ETA {info.eta}")
+            last = self._last_log_pct.get(task_id, -100.0)
+            if abs(info.percent - last) >= 5.0:
+                speed = f" {info.speed}" if info.speed else ""
+                eta = f" ETA {info.eta}" if info.eta else ""
+                self._log(f"[#{task_id[:4]}] {info.percent:5.1f}%{speed}{eta}")
+                self._last_log_pct[task_id] = info.percent
+
+        # Trim the error caption to its first line (full text is in the log).
+        if info.state == DownloadState.ERROR:
+            full = (info.error_message or "Unknown error").strip()
+            first_line = full.splitlines()[0][:220] if full else "Unknown error"
+            info = ProgressInfo(
+                state=DownloadState.ERROR,
+                title=info.title,
+                error_message=first_line,
+            )
 
         # Update widget
-        if url in self._download_items:
-            self._download_items[url].update_progress(info)
+        item = self._download_items.get(task_id)
+        if item is not None:
+            item.update_progress(info)
 
-        # Update status bar
-        if info.state == DownloadState.FINISHED:
-            active = sum(1 for w in self._download_items.values()
-                        if w._state in (DownloadState.EXTRACTING, DownloadState.DOWNLOADING, DownloadState.PROCESSING, DownloadState.QUEUED))
-            if active > 0:
-                self._status_label.configure(text=f"REMAINING — {active} IN QUEUE")
-            else:
-                self._status_label.configure(text="ALL DOWNLOADS COMPLETE")
-        elif info.state == DownloadState.ERROR:
-            self._status_label.configure(text="ERROR — CHECK LOG")
+        if info.state in (DownloadState.FINISHED, DownloadState.ERROR, DownloadState.CANCELLED):
+            self._last_log_pct.pop(task_id, None)
+            self._update_status()
 
     def _log(self, message: str):
         """Append a message to the log panel."""
@@ -242,7 +313,7 @@ class YtDlpGuiApp(ctk.CTk):
 
     def _on_close(self):
         """Handle window close — cancel downloads and exit."""
-        self._manager.cancel_all()
+        self._manager.shutdown()
         self.destroy()
 
 

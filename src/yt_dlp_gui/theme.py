@@ -78,6 +78,57 @@ def _resolve_font(preferred: str, fallback: str, size: int, weight: str = "norma
     """Return a (family, size, weight) tuple, falling back if the font is unavailable."""
     return (preferred, size, weight)
 
+
+def _refresh_fonts():
+    """Re-resolve every font tuple against the fonts actually installed.
+
+    Called from apply_theme() — needs a (temporary) Tk root to enumerate
+    font families. Falls back to the compiled-in preferred names on failure.
+    """
+    global FONT_H1, FONT_H2, FONT_H3, FONT_BODY_LG, FONT_BODY_MD, FONT_BODY_SM
+    global FONT_LABEL, FONT_LABEL_SM, FONT_NUMERAL, FONT_NUMERAL_LG
+
+    try:
+        import tkinter as tk
+        from tkinter import font as tkfont
+
+        tmp_root = tk.Tk()
+        tmp_root.withdraw()
+        try:
+            families = set(tkfont.families(tmp_root))
+        finally:
+            tmp_root.destroy()
+    except Exception:
+        return
+
+    def pick(preferred: str, fallback: str, size: int, weight: str) -> tuple:
+        return (preferred if preferred in families else fallback, size, weight)
+
+    display = pick(FONT_DISPLAY, FONT_DISPLAY_ALT, 16, "normal")[0]
+    body = pick(FONT_BODY, FONT_BODY_ALT, 16, "normal")[0]
+
+    FONT_H1         = (display, 28, "bold")
+    FONT_H2         = (display, 22, "bold")
+    FONT_H3         = (display, 18, "bold")
+    FONT_BODY_LG    = (body, 16, "normal")
+    FONT_BODY_MD    = (body, 14, "normal")
+    FONT_BODY_SM    = (body, 12, "normal")
+    FONT_LABEL      = (body, 11, "bold")
+    FONT_LABEL_SM   = (body, 10, "bold")
+    FONT_NUMERAL    = (body, 14, "bold")
+    FONT_NUMERAL_LG = (body, 18, "bold")
+
+    ThemeColors.font_h1        = FONT_H1
+    ThemeColors.font_h2        = FONT_H2
+    ThemeColors.font_h3        = FONT_H3
+    ThemeColors.font_body      = FONT_BODY_MD
+    ThemeColors.font_body_lg   = FONT_BODY_LG
+    ThemeColors.font_body_sm   = FONT_BODY_SM
+    ThemeColors.font_label     = FONT_LABEL
+    ThemeColors.font_label_sm  = FONT_LABEL_SM
+    ThemeColors.font_numeral   = FONT_NUMERAL
+    ThemeColors.font_numeral_lg = FONT_NUMERAL_LG
+
 # Display — Newsreader
 FONT_H1        = _resolve_font(FONT_DISPLAY, FONT_DISPLAY_ALT, 28, "bold")
 FONT_H2        = _resolve_font(FONT_DISPLAY, FONT_DISPLAY_ALT, 22, "bold")
@@ -125,6 +176,10 @@ def apply_theme():
     # Override widget colors via widget scaling
     ctk.set_widget_scaling(1.0)
     ctk.set_window_scaling(1.0)
+
+    # Resolve display/body fonts against what is actually installed
+    # (Newsreader/Inter fall back to Georgia/Segoe UI if missing).
+    _refresh_fonts()
 
 
 class ThemeColors:

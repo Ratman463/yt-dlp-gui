@@ -122,15 +122,20 @@ class MonumentCaption(ctk.CTkLabel):
 
 # ─── Download list item ───────────────────────────────────────────────────────
 
-from .downloader import DownloadState
+from .downloader import DownloadState, ACTIVE_STATES
 
 
 class DownloadItemWidget(MonumentFrame):
-    """A single row in the download list, showing title, progress, state, and actions."""
+    """A single row in the download list, showing title, progress, state, and actions.
 
-    def __init__(self, master, url: str, on_cancel=None, on_retry=None, **kwargs):
+    Identified by a stable task_id; displays the URL until a title is known.
+    """
+
+    def __init__(self, master, task_id: str, url: str,
+                 on_cancel=None, on_retry=None, **kwargs):
         super().__init__(master, **kwargs)
 
+        self._task_id = task_id
         self._url = url
         self._on_cancel = on_cancel
         self._on_retry = on_retry
@@ -181,15 +186,22 @@ class DownloadItemWidget(MonumentFrame):
 
         self._retry_btn = EtchButton(self._btn_frame, text="↻", width=28, height=28,
                                       command=self._handle_retry)
-        self._retry_btn.pack(side="left")
 
         self._update_state_display()
 
     # ─── Public API ────────────────────────────────────────────────────────────
 
     @property
+    def task_id(self) -> str:
+        return self._task_id
+
+    @property
     def url(self) -> str:
         return self._url
+
+    @property
+    def state(self) -> DownloadState:
+        return self._state
 
     def update_progress(self, info) -> None:
         """Update display based on ProgressInfo from the downloader."""
@@ -200,7 +212,7 @@ class DownloadItemWidget(MonumentFrame):
             self._title_label.configure(text=info.title)
 
         if info.state == DownloadState.DOWNLOADING:
-            self._progress.set(info.percent / 100.0)
+            self._progress.set(max(0.0, min(info.percent / 100.0, 1.0)))
             speed_text = f"{info.speed} | ETA {info.eta}" if info.speed else ""
             self._speed_label.configure(text=speed_text)
             self._state_label.configure(text=f"{info.percent:.1f}%")
@@ -221,39 +233,50 @@ class DownloadItemWidget(MonumentFrame):
         elif info.state == DownloadState.ERROR:
             self._state_label.configure(text="✗ ERROR")
             self._error_label.configure(text=info.error_message)
-            self._error_label.grid()
-            self._btn_frame.grid()
+            self._speed_label.configure(text="")
 
         elif info.state == DownloadState.CANCELLED:
             self._state_label.configure(text="CANCELLED")
+            self._speed_label.configure(text="")
 
     # ─── Private ───────────────────────────────────────────────────────────────
 
     def _update_state_display(self) -> None:
-        """Update the state indicator color based on current state."""
+        """Update the state indicator color and visible action buttons."""
         color_map = {
             DownloadState.QUEUED: theme.border_default,
             DownloadState.EXTRACTING: theme.accent_brass,
             DownloadState.DOWNLOADING: theme.accent_brass,
             DownloadState.PROCESSING: theme.accent_brass,
             DownloadState.FINISHED: theme.accent_success,
-            DownloadState.ERROR: theme.error,
+            DownloadState.ERROR: theme.error_text,
             DownloadState.CANCELLED: theme.text_secondary,
         }
         self._state_indicator.configure(fg_color=color_map.get(self._state, theme.border_default))
 
-        # Show cancel button during active download
-        if self._state in (DownloadState.EXTRACTING, DownloadState.DOWNLOADING, DownloadState.PROCESSING):
-            self._btn_frame.grid()
+        if self._state in ACTIVE_STATES:
+            # Active (including queued) → cancellable, retry hidden.
             self._error_label.grid_remove()
-        elif self._state == DownloadState.FINISHED:
+            self._btn_frame.grid()
+            self._cancel_btn.pack(side="left", padx=(0, 4))
+            self._retry_btn.pack_forget()
+        elif self._state in (DownloadState.ERROR, DownloadState.CANCELLED):
+            # Terminal-but-recoverable → retry only.
+            if self._state == DownloadState.ERROR:
+                self._error_label.grid()
+            else:
+                self._error_label.grid_remove()
+            self._btn_frame.grid()
+            self._cancel_btn.pack_forget()
+            self._retry_btn.pack(side="left")
+        else:  # FINISHED
             self._btn_frame.grid_remove()
             self._error_label.grid_remove()
 
     def _handle_cancel(self):
         if self._on_cancel:
-            self._on_cancel(self._url)
+            self._on_cancel(self._task_id)
 
     def _handle_retry(self):
         if self._on_retry:
-            self._on_retry(self._url)
+            self._on_retry(self._task_id)

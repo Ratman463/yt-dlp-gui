@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 from .theme import theme, CORNER_RADIUS
 from .config import FORMAT_PRESETS, PLAYER_CLIENT_OPTIONS
@@ -34,12 +34,11 @@ class AddDownloadDialog(ctk.CTkToplevel):
 
         # Center on parent
         self.transient(master)
-        # Release any stale grab from a previous dialog, then take it.
-        try:
-            master.grab_release()
-        except Exception:
-            pass
-        self.grab_set()  # modal
+        self.lift()
+        self.focus_force()
+        # Take the modal grab only after the window is mapped — calling
+        # grab_set() on a not-yet-viewable window raises TclError.
+        self.after(150, self._safe_grab)
 
         # ─── Main container ────────────────────────────────────────────────
         self.grid_rowconfigure(0, weight=0)
@@ -181,9 +180,25 @@ class AddDownloadDialog(ctk.CTkToplevel):
         EtchButton(path_frame, text="BROWSE", width=80, height=36,
                    command=self._browse_path).grid(row=0, column=1)
 
+        # ─── Section: Playlist ───────────────────────────────────────────
+        self._add_section_header(content, "PLAYLIST", 20)
+        self._playlist_var = ctk.BooleanVar(value=bool(self._config.get("download_playlist", False)))
+        ctk.CTkCheckBox(
+            content, text="Download the entire playlist (otherwise only the single video)",
+            variable=self._playlist_var,
+            corner_radius=CORNER_RADIUS, border_width=2,
+            fg_color=theme.accent_brass, hover_color=theme.accent_crimson,
+            text_color=theme.text_primary, font=theme.font_body_sm,
+        ).grid(row=22, column=0, sticky="w", padx=16, pady=(0, 16))
+
         # ─── Section: Player Client (Advanced) ──────────────────────────
-        self._add_section_header(content, "PLAYER CLIENT", 20)
-        self._player_var = ctk.StringVar(value="Default (web)")
+        self._add_section_header(content, "PLAYER CLIENT", 23)
+        saved_client = self._config.get("player_client", "web")
+        client_label = next(
+            (label for label, value in PLAYER_CLIENT_OPTIONS if value == saved_client),
+            "Default (web)",
+        )
+        self._player_var = ctk.StringVar(value=client_label)
         self._player_menu = ctk.CTkOptionMenu(
             content, values=[p[0] for p in PLAYER_CLIENT_OPTIONS],
             variable=self._player_var,
@@ -191,7 +206,7 @@ class AddDownloadDialog(ctk.CTkToplevel):
             button_color=theme.accent_brass, button_hover_color=theme.accent_crimson,
             text_color=theme.text_primary, font=theme.font_body,
         )
-        self._player_menu.grid(row=22, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._player_menu.grid(row=25, column=0, sticky="ew", padx=16, pady=(0, 16))
 
         # ─── Footer — Action buttons ────────────────────────────────────
         footer = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0, height=60)
@@ -208,6 +223,15 @@ class AddDownloadDialog(ctk.CTkToplevel):
 
     # ─── Helpers ────────────────────────────────────────────────────────────
 
+    def _safe_grab(self):
+        """Take the modal grab once the window is (probably) viewable."""
+        try:
+            if self.winfo_exists():
+                self.grab_set()
+        except Exception:
+            # Window was closed before the grab fired — nothing to do.
+            pass
+
     def _add_section_header(self, parent, text: str, row: int):
         """Add an uppercase label-caps section header with an etch underline."""
         label = ctk.CTkLabel(
@@ -222,7 +246,6 @@ class AddDownloadDialog(ctk.CTkToplevel):
 
     def _on_format_change(self, value: str):
         """Show/hide custom format entry based on preset selection."""
-        preset_map = {p[0]: p[1] for p in FORMAT_PRESETS}
         if value == "Custom":
             self._custom_format_entry.grid()
             self._custom_format_entry.focus_set()
@@ -245,7 +268,22 @@ class AddDownloadDialog(ctk.CTkToplevel):
             self._path_entry.insert(0, path)
 
     def _on_submit_click(self):
-        """Gather all parameters and call the submit callback."""
+        """Gather all parameters, validate, and call the submit callback."""
+        url = self._url_entry.get().strip()
+        if not url:
+            messagebox.showwarning(
+                "Missing URL", "Please enter a video URL first.", parent=self,
+            )
+            self._url_entry.focus_set()
+            return
+
+        save_path = self._path_entry.get().strip()
+        if not save_path:
+            messagebox.showwarning(
+                "Missing save path", "Please choose a download folder.", parent=self,
+            )
+            return
+
         # Resolve format
         preset_map = {p[0]: p[1] for p in FORMAT_PRESETS}
         selected_format_label = self._format_var.get()
@@ -261,8 +299,8 @@ class AddDownloadDialog(ctk.CTkToplevel):
         player_client = player_client_map.get(self._player_var.get(), "web")
 
         self._result = {
-            "url": self._url_entry.get().strip(),
-            "save_path": self._path_entry.get().strip(),
+            "url": url,
+            "save_path": save_path,
             "format_spec": format_spec,
             "proxy": self._proxy_entry.get().strip(),
             "cookies_path": self._cookies_entry.get().strip(),
@@ -273,15 +311,24 @@ class AddDownloadDialog(ctk.CTkToplevel):
             "merge_output_format": "mp4",
             "js_runtimes": "node",
             "player_client": player_client,
+            "download_playlist": self._playlist_var.get(),
         }
 
         if self._on_submit:
             self._on_submit(self._result)
+        self._grab_release_safe()
         self.destroy()
 
     def _on_cancel(self):
         self._result = None
+        self._grab_release_safe()
         self.destroy()
+
+    def _grab_release_safe(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
 
     @property
     def result(self) -> dict | None:

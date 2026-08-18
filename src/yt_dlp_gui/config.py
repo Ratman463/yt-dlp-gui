@@ -45,6 +45,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "player_client": "web",
     "merge_output_format": "mp4",
     "max_concurrent_downloads": 1,
+    "download_playlist": False,
 }
 
 
