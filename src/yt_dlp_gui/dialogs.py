@@ -44,6 +44,9 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
+        # Column weight is what makes the content/footer stretch to the
+        # full window width — without it the dialog renders half-empty.
+        self.grid_columnconfigure(0, weight=1)
 
         # Header — Etch line (3px crimson top border)
         header = ctk.CTkFrame(self, fg_color=theme.accent_crimson, height=3, corner_radius=0)

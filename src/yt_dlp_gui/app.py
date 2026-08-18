@@ -142,9 +142,9 @@ class YtDlpGuiApp(ctk.CTk):
 
         # ─── Log panel (hidden by default) ─────────────────────────────
         self._log_visible = False
-        self._log_frame = MonumentFrame(self, corner_radius=CORNER_RADIUS, height=150)
+        self._log_frame = MonumentFrame(self, corner_radius=CORNER_RADIUS)
         self._log_text = ctk.CTkTextbox(
-            self._log_frame, corner_radius=CORNER_RADIUS,
+            self._log_frame, corner_radius=CORNER_RADIUS, height=130,
             fg_color=theme.bg_card, text_color=theme.text_secondary,
             font=theme.font_body_sm, wrap="word",
         )
