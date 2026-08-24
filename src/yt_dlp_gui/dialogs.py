@@ -15,6 +15,10 @@ from tkinter import filedialog, messagebox
 from .theme import theme, CORNER_RADIUS
 from .config import FORMAT_PRESETS, PLAYER_CLIENT_OPTIONS
 
+# Sentinel labels referenced by logic — keep in sync with config presets.
+_CUSTOM_FORMAT_LABEL = FORMAT_PRESETS[-1][0]  # "自定义"
+_DEFAULT_CLIENT_LABEL = PLAYER_CLIENT_OPTIONS[0][0]  # "默认 (web)"
+
 
 class AddDownloadDialog(ctk.CTkToplevel):
     """Popup dialog for adding a new download task."""
@@ -27,7 +31,7 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self._result: dict | None = None
 
         # ─── Window config ─────────────────────────────────────────────────
-        self.title("ADD DOWNLOAD")
+        self.title("添加下载")
         self.configure(fg_color=theme.bg_primary)
         self.geometry("520x640")
         self.resizable(False, False)
@@ -61,7 +65,7 @@ class AddDownloadDialog(ctk.CTkToplevel):
         content.grid_columnconfigure(0, weight=1)
 
         # ─── Section: URL ───────────────────────────────────────────────
-        self._add_section_header(content, "URL", 0)
+        self._add_section_header(content, "链接（URL）", 0)
         self._url_entry = ctk.CTkEntry(
             content, placeholder_text="https://www.youtube.com/watch?v=...",
             corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
@@ -71,10 +75,10 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self._url_entry.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
 
         # ─── Section: Format ─────────────────────────────────────────────
-        self._add_section_header(content, "FORMAT", 3)
+        self._add_section_header(content, "画质格式", 3)
         # Show the label (not the raw format string) as the initial selection
         saved_format = self._config.get("format", FORMAT_PRESETS[2][1])
-        initial_format_label = "Custom"
+        initial_format_label = _CUSTOM_FORMAT_LABEL
         for label, spec in FORMAT_PRESETS:
             if spec == saved_format:
                 initial_format_label = label
@@ -92,19 +96,19 @@ class AddDownloadDialog(ctk.CTkToplevel):
 
         # Custom format entry (hidden by default)
         self._custom_format_entry = ctk.CTkEntry(
-            content, placeholder_text="Custom format string (e.g. bv[height<=720]+ba/best)",
+            content, placeholder_text="自定义格式串（如 bv[height<=720]+ba/best）",
             corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
             border_color=theme.border_default, text_color=theme.text_primary,
             font=theme.font_body, border_width=1, height=36,
         )
         self._custom_format_entry.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 16))
         self._custom_format_entry.grid_remove()
-        if initial_format_label == "Custom":
+        if initial_format_label == _CUSTOM_FORMAT_LABEL:
             self._custom_format_entry.grid()
             self._custom_format_entry.insert(0, saved_format)
 
         # ─── Section: Subtitles ──────────────────────────────────────────
-        self._add_section_header(content, "SUBTITLES", 7)
+        self._add_section_header(content, "字幕", 7)
         self._write_subs_var = ctk.BooleanVar(value=self._config.get("write_subtitles", True))
         self._write_auto_var = ctk.BooleanVar(value=self._config.get("write_auto_subs", True))
         self._embed_subs_var = ctk.BooleanVar(value=self._config.get("embed_subtitles", True))
@@ -113,9 +117,9 @@ class AddDownloadDialog(ctk.CTkToplevel):
         chk_frame.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 4))
 
         for i, (text, var) in enumerate([
-            ("Write subtitles", self._write_subs_var),
-            ("Auto-generated", self._write_auto_var),
-            ("Embed in video", self._embed_subs_var),
+            ("下载字幕", self._write_subs_var),
+            ("含自动生成", self._write_auto_var),
+            ("嵌入视频", self._embed_subs_var),
         ]):
             ctk.CTkCheckBox(
                 chk_frame, text=text, variable=var,
@@ -134,9 +138,9 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self._subs_lang_entry.insert(0, self._config.get("subtitle_langs", "zh-Hans,zh-Hant,en,ja"))
 
         # ─── Section: Proxy ──────────────────────────────────────────────
-        self._add_section_header(content, "PROXY", 11)
+        self._add_section_header(content, "代理", 11)
         self._proxy_entry = ctk.CTkEntry(
-            content, placeholder_text="socks5h://127.0.0.1:7897  (leave empty for direct)",
+            content, placeholder_text="socks5h://127.0.0.1:7897（留空则直连）",
             corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
             border_color=theme.border_default, text_color=theme.text_primary,
             font=theme.font_body, border_width=1, height=36,
@@ -146,13 +150,13 @@ class AddDownloadDialog(ctk.CTkToplevel):
             self._proxy_entry.insert(0, self._config["proxy"])
 
         # ─── Section: Cookies ────────────────────────────────────────────
-        self._add_section_header(content, "COOKIES", 14)
+        self._add_section_header(content, "Cookies", 14)
         cookies_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
         cookies_frame.grid(row=16, column=0, sticky="ew", padx=16, pady=(0, 16))
         cookies_frame.grid_columnconfigure(0, weight=1)
 
         self._cookies_entry = ctk.CTkEntry(
-            cookies_frame, placeholder_text="Path to cookies.txt",
+            cookies_frame, placeholder_text="cookies.txt 文件路径",
             corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
             border_color=theme.border_default, text_color=theme.text_primary,
             font=theme.font_body, border_width=1, height=36,
@@ -162,11 +166,11 @@ class AddDownloadDialog(ctk.CTkToplevel):
             self._cookies_entry.insert(0, self._config["cookies_path"])
 
         from .widgets import EtchButton
-        EtchButton(cookies_frame, text="BROWSE", width=80, height=36,
+        EtchButton(cookies_frame, text="浏览…", width=80, height=36,
                    command=self._browse_cookies).grid(row=0, column=1)
 
         # ─── Section: Save Path ──────────────────────────────────────────
-        self._add_section_header(content, "SAVE TO", 17)
+        self._add_section_header(content, "保存到", 17)
         path_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
         path_frame.grid(row=19, column=0, sticky="ew", padx=16, pady=(0, 16))
         path_frame.grid_columnconfigure(0, weight=1)
@@ -180,14 +184,14 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self._path_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         self._path_entry.insert(0, self._config.get("save_path", os.path.expanduser("~/Downloads")))
 
-        EtchButton(path_frame, text="BROWSE", width=80, height=36,
+        EtchButton(path_frame, text="浏览…", width=80, height=36,
                    command=self._browse_path).grid(row=0, column=1)
 
         # ─── Section: Playlist ───────────────────────────────────────────
-        self._add_section_header(content, "PLAYLIST", 20)
+        self._add_section_header(content, "播放列表", 20)
         self._playlist_var = ctk.BooleanVar(value=bool(self._config.get("download_playlist", False)))
         ctk.CTkCheckBox(
-            content, text="Download the entire playlist (otherwise only the single video)",
+            content, text="下载整个播放列表（不勾选则只下载单个视频）",
             variable=self._playlist_var,
             corner_radius=CORNER_RADIUS, border_width=2,
             fg_color=theme.accent_brass, hover_color=theme.accent_crimson,
@@ -195,11 +199,11 @@ class AddDownloadDialog(ctk.CTkToplevel):
         ).grid(row=22, column=0, sticky="w", padx=16, pady=(0, 16))
 
         # ─── Section: Player Client (Advanced) ──────────────────────────
-        self._add_section_header(content, "PLAYER CLIENT", 23)
+        self._add_section_header(content, "播放器客户端", 23)
         saved_client = self._config.get("player_client", "web")
         client_label = next(
             (label for label, value in PLAYER_CLIENT_OPTIONS if value == saved_client),
-            "Default (web)",
+            _DEFAULT_CLIENT_LABEL,
         )
         self._player_var = ctk.StringVar(value=client_label)
         self._player_menu = ctk.CTkOptionMenu(
@@ -218,10 +222,10 @@ class AddDownloadDialog(ctk.CTkToplevel):
 
         from .widgets import BrassButton, DangerButton
 
-        DangerButton(footer, text="CANCEL", width=120, height=40,
+        DangerButton(footer, text="取消", width=120, height=40,
                      command=self._on_cancel).grid(row=0, column=0, sticky="w")
 
-        BrassButton(footer, text="ADD TO QUEUE", width=160, height=40,
+        BrassButton(footer, text="添加到队列", width=160, height=40,
                     command=self._on_submit_click).grid(row=0, column=1, sticky="e")
 
     # ─── Helpers ────────────────────────────────────────────────────────────
@@ -249,7 +253,7 @@ class AddDownloadDialog(ctk.CTkToplevel):
 
     def _on_format_change(self, value: str):
         """Show/hide custom format entry based on preset selection."""
-        if value == "Custom":
+        if value == _CUSTOM_FORMAT_LABEL:
             self._custom_format_entry.grid()
             self._custom_format_entry.focus_set()
         else:
@@ -257,15 +261,15 @@ class AddDownloadDialog(ctk.CTkToplevel):
 
     def _browse_cookies(self):
         path = filedialog.askopenfilename(
-            title="Select cookies file",
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            title="选择 cookies 文件",
+            filetypes=[("文本文件", "*.txt"), ("所有文件", "*.*")],
         )
         if path:
             self._cookies_entry.delete(0, "end")
             self._cookies_entry.insert(0, path)
 
     def _browse_path(self):
-        path = filedialog.askdirectory(title="Select download folder")
+        path = filedialog.askdirectory(title="选择下载文件夹")
         if path:
             self._path_entry.delete(0, "end")
             self._path_entry.insert(0, path)
@@ -275,7 +279,7 @@ class AddDownloadDialog(ctk.CTkToplevel):
         url = self._url_entry.get().strip()
         if not url:
             messagebox.showwarning(
-                "Missing URL", "Please enter a video URL first.", parent=self,
+                "缺少链接", "请先输入视频链接。", parent=self,
             )
             self._url_entry.focus_set()
             return
@@ -283,14 +287,14 @@ class AddDownloadDialog(ctk.CTkToplevel):
         save_path = self._path_entry.get().strip()
         if not save_path:
             messagebox.showwarning(
-                "Missing save path", "Please choose a download folder.", parent=self,
+                "缺少保存路径", "请选择下载文件夹。", parent=self,
             )
             return
 
         # Resolve format
         preset_map = {p[0]: p[1] for p in FORMAT_PRESETS}
         selected_format_label = self._format_var.get()
-        if selected_format_label == "Custom":
+        if selected_format_label == _CUSTOM_FORMAT_LABEL:
             format_spec = self._custom_format_entry.get().strip()
             if not format_spec:
                 format_spec = "bv[height<=1080]+ba/b[height<=1080]/best"

@@ -158,7 +158,7 @@ class DownloadItemWidget(MonumentFrame):
         self._title_label.grid(row=0, column=1, sticky="ew", padx=(12, 8), pady=(8, 2))
 
         # Right side: state label + actions
-        self._state_label = MonumentCaption(self, text="QUEUED", anchor="e")
+        self._state_label = MonumentCaption(self, text="排队中", anchor="e")
         self._state_label.grid(row=0, column=2, sticky="e", padx=(0, 8), pady=(8, 2))
 
         # Progress bar
@@ -219,24 +219,24 @@ class DownloadItemWidget(MonumentFrame):
 
         elif info.state == DownloadState.EXTRACTING:
             self._progress.set(0)
-            self._state_label.configure(text="EXTRACTING")
+            self._state_label.configure(text="解析中")
 
         elif info.state == DownloadState.PROCESSING:
             self._progress.set(1.0)
-            self._state_label.configure(text="PROCESSING")
+            self._state_label.configure(text="处理中")
 
         elif info.state == DownloadState.FINISHED:
             self._progress.set(1.0)
-            self._state_label.configure(text="✓ DONE")
+            self._state_label.configure(text="✓ 完成")
             self._speed_label.configure(text="")
 
         elif info.state == DownloadState.ERROR:
-            self._state_label.configure(text="✗ ERROR")
+            self._state_label.configure(text="✗ 出错")
             self._error_label.configure(text=info.error_message)
             self._speed_label.configure(text="")
 
         elif info.state == DownloadState.CANCELLED:
-            self._state_label.configure(text="CANCELLED")
+            self._state_label.configure(text="已取消")
             self._speed_label.configure(text="")
 
     # ─── Private ───────────────────────────────────────────────────────────────

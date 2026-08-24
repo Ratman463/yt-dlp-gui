@@ -82,12 +82,12 @@ FORMAT_PRESETS = [
     ("1080p", "bv[height<=1080]+ba/b[height<=1080]/best"),
     ("720p", "bv[height<=720]+ba/b[height<=720]/best"),
     ("480p", "bv[height<=480]+ba/b[height<=480]/best"),
-    ("Best", "bv+ba/best"),
-    ("Custom", ""),
+    ("最佳画质", "bv+ba/best"),
+    ("自定义", ""),
 ]
 
 PLAYER_CLIENT_OPTIONS = [
-    ("Default (web)", "web"),
+    ("默认 (web)", "web"),
     ("Web + TV", "web,tv"),
     ("Web + Android", "web,android"),
     ("Web + iOS", "web,ios"),

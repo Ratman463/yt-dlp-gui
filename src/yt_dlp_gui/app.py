@@ -95,17 +95,17 @@ class YtDlpGuiApp(ctk.CTk):
         title_label.grid(row=0, column=0, padx=(24, 8), pady=(14, 0), sticky="w")
 
         # Caption
-        caption = MonumentCaption(header, text="MONUMENTAL VIDEO ARCHIVE")
+        caption = MonumentCaption(header, text="视频归档库")
         caption.grid(row=1, column=0, padx=(24, 0), pady=(0, 12), sticky="w")
 
         # Action buttons
         btn_frame = ctk.CTkFrame(header, fg_color="transparent", corner_radius=0)
         btn_frame.grid(row=0, column=1, rowspan=2, padx=(0, 24), pady=(14, 12), sticky="e")
 
-        BrassButton(btn_frame, text="+ ADD", width=100, height=36,
+        BrassButton(btn_frame, text="+ 添加", width=100, height=36,
                     command=self._open_add_dialog).pack(side="left", padx=(0, 8))
 
-        DangerButton(btn_frame, text="✕ STOP ALL", width=100, height=36,
+        DangerButton(btn_frame, text="✕ 全部停止", width=110, height=36,
                      command=self._stop_all).pack(side="left")
 
         # ─── Divider ────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ class YtDlpGuiApp(ctk.CTk):
         # Empty state
         self._empty_label = MonumentCaption(
             self._scrollable,
-            text="NO DOWNLOADS — CLICK + ADD TO BEGIN",
+            text="暂无下载任务 — 点击「+ 添加」开始",
         )
         self._empty_label.grid(row=0, column=0, pady=48)
 
@@ -134,10 +134,10 @@ class YtDlpGuiApp(ctk.CTk):
         footer.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 8))
         footer.grid_columnconfigure(1, weight=1)
 
-        EtchButton(footer, text="▼ LOG", width=80, height=28,
+        EtchButton(footer, text="▼ 日志", width=80, height=28,
                    command=self._toggle_log).grid(row=0, column=0)
 
-        self._status_label = MonumentCaption(footer, text="READY")
+        self._status_label = MonumentCaption(footer, text="就绪")
         self._status_label.grid(row=0, column=1, sticky="e", padx=(0, 8))
 
         # ─── Log panel (hidden by default) ─────────────────────────────
