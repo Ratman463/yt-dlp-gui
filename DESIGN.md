@@ -1,190 +1,227 @@
----
-name: Neo-Esoteric Monument
+﻿---
+name: SOFT_CARD (Rounded Card)
 colors:
-  surface: '#fbf9f4'
-  surface-dim: '#dbdad5'
-  surface-bright: '#fbf9f4'
-  surface-container-lowest: '#ffffff'
-  surface-container-low: '#f5f4ef'
-  surface-container: '#efeee9'
-  surface-container-high: '#e9e8e3'
-  surface-container-highest: '#e3e2de'
-  on-surface: '#1b1c19'
-  on-surface-variant: '#4d4545'
-  inverse-surface: '#30312e'
-  inverse-on-surface: '#f2f1ec'
-  outline: '#7f7575'
-  outline-variant: '#d0c4c4'
-  surface-tint: '#615d5d'
-  primary: '#000000'
-  on-primary: '#ffffff'
-  primary-container: '#1d1b1b'
-  on-primary-container: '#878382'
-  inverse-primary: '#cbc5c5'
-  secondary: '#745b1d'
-  on-secondary: '#ffffff'
-  secondary-container: '#fedc91'
-  on-secondary-container: '#785f21'
-  tertiary: '#000000'
-  on-tertiary: '#ffffff'
-  tertiary-container: '#410004'
-  on-tertiary-container: '#dd5853'
-  error: '#ba1a1a'
-  on-error: '#ffffff'
-  error-container: '#ffdad6'
-  on-error-container: '#93000a'
-  primary-fixed: '#e7e1e1'
-  primary-fixed-dim: '#cbc5c5'
-  on-primary-fixed: '#1d1b1b'
-  on-primary-fixed-variant: '#494646'
-  secondary-fixed: '#ffdf9a'
-  secondary-fixed-dim: '#e3c37a'
-  on-secondary-fixed: '#251a00'
-  on-secondary-fixed-variant: '#5a4305'
-  tertiary-fixed: '#ffdad7'
-  tertiary-fixed-dim: '#ffb3ad'
-  on-tertiary-fixed: '#410004'
-  on-tertiary-fixed-variant: '#8a1b1d'
-  background: '#fbf9f4'
-  on-background: '#1b1c19'
-  surface-variant: '#e3e2de'
-  etch: '#9F2B2A'
-  brass: '#fedc91'
-  brass-active: '#e3c37a'
-  charcoal-border: '#4d4545'
-  success: '#2e7d32'
+  surface: '#eef0f7'
+  surface-card: '#ffffff'
+  surface-secondary: '#f1f2f8'
+  label: '#2b2d42'
+  secondary-label: '#7a7f9a'
+  tertiary-label: '#a5aac4'
+  quaternary-label: '#c3c7d9'
+  separator: '#e6e8f2'
+  outline: '#c9cddd'
+  blue: '#3b82f6'
+  blue-hover: '#5c9cf8'
+  blue-pressed: '#2f6fe0'
+  blue-container: '#e3efff'
+  blue-container-hover: '#d6e7fd'
+  on-blue-container: '#1d5fd0'
+  rose: '#f4506c'
+  rose-hover: '#ff647e'
+  rose-container: '#ffe7eb'
+  rose-container-hover: '#ffd9e0'
+  on-rose-container: '#b32447'
+  mint: '#10b981'
+  amber: '#ff9f43'
+  neutral: '#8b90a8'
+  chip-neutral: '#eceef5'
+  chip-neutral-hover: '#e1e4ee'
 typography:
-  display-serif:
-    fontFamily: Newsreader
-    fontSize: 48px
-    fontWeight: '400'
-    lineHeight: '1.1'
-    letterSpacing: -0.02em
-  quote-editorial:
-    fontFamily: Newsreader
-    fontSize: 24px
-    fontWeight: '400'
+  large-title:
+    fontFamily: SF Pro Display
+    fontSize: 28px
+    fontWeight: 'bold'
+    lineHeight: '1.2'
+  title-1:
+    fontFamily: SF Pro Display
+    fontSize: 22px
+    fontWeight: 'bold'
+    lineHeight: '1.3'
+  title-2:
+    fontFamily: SF Pro Display
+    fontSize: 17px
+    fontWeight: 'bold'
+    lineHeight: '1.3'
+  title-3:
+    fontFamily: SF Pro Display
+    fontSize: 15px
+    fontWeight: 'bold'
+    lineHeight: '1.3'
+  headline:
+    fontFamily: SF Pro Text
+    fontSize: 15px
+    fontWeight: 'bold'
     lineHeight: '1.4'
-  body-main:
-    fontFamily: Inter
+  body:
+    fontFamily: SF Pro Text
+    fontSize: 14px
+    fontWeight: '400'
+    lineHeight: '1.5'
+  body-lg:
+    fontFamily: SF Pro Text
     fontSize: 16px
     fontWeight: '400'
-    lineHeight: '1.6'
-    letterSpacing: 0.01em
-  metadata-caps:
-    fontFamily: Inter
+    lineHeight: '1.5'
+  caption:
+    fontFamily: SF Pro Text
     fontSize: 11px
-    fontWeight: '700'
-    lineHeight: '1.2'
-    letterSpacing: 0.15em
-  label-small:
-    fontFamily: Inter
-    fontSize: 13px
-    fontWeight: '500'
-    lineHeight: '1'
-    letterSpacing: 0.05em
+    fontWeight: '400'
+    lineHeight: '1.3'
 spacing:
   unit: 4px
-  margin-page: 64px
-  gutter: 32px
-  block-gap: 48px
-  element-gap: 16px
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+  xl: 48px
+  gutter: 24px
+  margin: 28px
 rounded:
-  sm: 0px
-  DEFAULT: 0px
-  md: 0px
-  lg: 0px
-  xl: 0px
-  full: 0px
+  sm: 12px
+  DEFAULT: 16px
+  lg: 20px
+  pill: 999px
 components:
   button-primary:
-    backgroundColor: '{colors.brass}'
-    textColor: '{colors.on-surface}'
-    rounded: 0px
-    padding: 8px 16px
+    backgroundColor: '{colors.Blue}'
+    textColor: '#ffffff'
+    rounded: pill
+    height: 36px
   button-primary-hover:
-    backgroundColor: '{colors.brass-active}'
-  button-etch:
-    backgroundColor: '{colors.surface-container-lowest}'
-    textColor: '{colors.on-surface}'
-    rounded: 0px
-    padding: 8px 16px
-    border: 1px solid '{colors.charcoal-border}'
-  button-etch-hover:
-    backgroundColor: '{colors.surface-container}'
-  button-danger:
-    backgroundColor: '{colors.error}'
-    textColor: '{colors.on-error}'
-    rounded: 0px
+    backgroundColor: '{colors.blue-hover}'
+  button-secondary:
+    backgroundColor: '{colors.blue-container}'
+    textColor: '{colors.Blue}'
+    rounded: pill
+  button-destructive:
+    backgroundColor: '{colors.rose}'
+    textColor: '#ffffff'
+    rounded: pill
+  button-destructive-soft:
+    backgroundColor: '{colors.rose-container}'
+    textColor: '{colors.rose}'
+    rounded: pill
+  button-neutral:
+    backgroundColor: '{colors.chip-neutral}'
+    textColor: '{colors.label}'
+    rounded: pill
   input:
-    backgroundColor: '{colors.surface-container-lowest}'
-    textColor: '{colors.on-surface}'
-    rounded: 0px
-    border: 1px solid '{colors.outline}'
+    backgroundColor: '{colors.surface-secondary}'
+    textColor: '{colors.label}'
+    rounded: 12px
+    borderWidth: 1px
+    borderColor: '{colors.separator}'
   input-focus:
-    border: 2px solid '{colors.brass}'
+    borderColor: '{colors.Blue}'
   card:
-    backgroundColor: '{colors.surface-container-lowest}'
-    rounded: 0px
-    border: 1px solid '{colors.outline}'
+    backgroundColor: '{colors.surface-card}'
+    rounded: 16px
+    borderWidth: 1px
+    borderColor: '{colors.separator}'
   progress-bar:
-    backgroundColor: '{colors.outline}'
-    fillColor: '{colors.brass}'
-    rounded: 0px
-  etch-line:
-    backgroundColor: '{colors.etch}'
-    height: 1px
-    rounded: 0px
+    backgroundColor: '{colors.separator}'
+    fillColor: '{colors.Blue}'
+    rounded: pill
+    height: 8px
 ---
 
 ## Brand & Style
 
-The design system is rooted in the "Minimalist Neo-Esoteric" aesthetic — a fusion of ancient monumentalism and modern editorial precision. It evokes the feeling of a rare, physical manuscript or a stone-carved archive rather than a digital interface.
+The design system is **SOFT_CARD** — a young, friendly "rounded card"
+aesthetic. Pill buttons, pastel chips, white cards floating on a
+lavender-mist canvas, and generous breathing room everywhere. It feels
+like a modern consumer app: colorful, soft, and approachable.
 
-The style is **Tactile and Minimalist**, rejecting standard web conventions in favor of a craftsmen-focused approach. It utilizes physical metaphors — heavy cardstock, etched metal highlights, and hard-edged shadows — to create a sense of permanence and weight.
+This style prioritizes **roundness and color**. Actions are colorful
+filled pills; destructive actions are soft rose chips, not alarm-red
+buttons; surfaces are ultra-rounded tiles with hairline borders.
 
 ## Colors
 
-The palette is anchored by **Warm Alabaster** (#fbf9f4) as the primary canvas. **Rich Charcoal** (#1b1c19) provides weight for primary text and structural boundaries.
+The palette is anchored by **Mist** (#eef0f7) — a lavender-tinted light
+gray that reads as friendlier than a neutral gray. **Card** (#ffffff)
+surfaces float on it with a 1px hairline border (#e6e8f2) so tiles stay
+distinct even when adjacent.
 
-**Matte Brass** (#fedc91) is reserved for interactive highlights — buttons, progress bars, focus states. **Deep Crimson** (#9F2B2A) is used exclusively as a structural "bloodline" — 1px offset lines and state indicators to suggest depth and history without digital blurs.
+**Ink** (#2b2d42) — a deep indigo-tinged dark — carries primary text,
+softer than pure black. **Slate** (#7a7f9a) handles secondary text.
+
+**Blue** (#3b82f6) is the primary accent: bright, calm, and confident.
+It fills primary buttons, progress tracks, and checkbox fills.
+**Rose** (#f4506c) is the destructive accent — softer than alarm-red,
+used filled for hard destructive actions and as a pale chip
+(#ffe7eb + rose text) for gentle ones like "全部停止".
+**Mint** (#10b981) marks success; **Amber** (#ff9f43) marks parsing.
+
+Pastel containers round out the family: **Blue Container** (#e3efff)
+for secondary chips, **Chip Neutral** (#eceef5) for tertiary buttons.
 
 ## Typography
 
-This design system uses **Newsreader** (serif) for display headlines and **Inter** (sans-serif) for all functional data and body text. Metadata and labels must utilize heavy tracking and uppercase styling to evoke architectural engravings.
+**SF Pro Display** for titles and **SF Pro Text** for body, falling back
+to **Segoe UI** on Windows via runtime resolution in `theme.refresh_fonts()`.
+Body text is 14px — one notch larger than typical desktop defaults,
+matching the friendly, oversized feel of the geometry.
 
 ## Layout & Spacing
 
-The layout follows a **Fixed Grid** philosophy, centered on the screen like an open book. Content is organized with wide gutters and generous vertical gaps to slow the reader's pace and demand attention.
+The 4pt grid, used generously. Window margins are 28px, cards carry
+16px inner padding, and gaps between major sections are 16–24px.
+Breathing room is the point — nothing should feel cramped.
 
 ## Elevation & Depth
 
-Depth is achieved through **Physical Offsets** rather than ambient blurs:
+Depth comes from **surface contrast plus hairlines**:
 
-1. **The Etch**: Interactive cards use a 1px solid offset in Deep Crimson (#9F2B2A) — a "cut" or "stamped" look.
-2. **The Inlay**: Interactive elements shift 1px on active state, simulating a physical press.
-3. **Tonal Stacking**: Surfaces use thin Charcoal borders (1px) to define boundaries. No soft shadows are permitted.
+1. **Canvas vs. Card**: Mist (#eef0f7) vs. white (#ffffff) separates
+   layers without shadows.
+2. **Hairline Borders**: Every card carries a 1px #e6e8f2 border so
+   white tiles remain visible against white dialogs and each other.
+3. **Soft Wells**: Inputs use a light gray fill (#f1f2f8) to sink below
+   the card surface.
 
 ## Shapes
 
-All corners are strictly **0px**. Rectangles represent stone slabs and cut paper. The shape language is architecturally sharp — any curvature would betray the monumental intent.
+Very soft geometry: **16px for cards and dialogs**, **12px for inputs
+and menus**, **20px for large sheets**, and **pill (999px)** for all
+buttons and progress tracks. CustomTkinter auto-clamps corner radius to
+half the widget's smaller dimension, so 999 renders as a perfect pill.
 
 ## Components
 
-- **Buttons**: Primary buttons are solid Matte Brass (#fedc91) with Charcoal text. Secondary buttons use a 1px Charcoal border with Alabaster fill.
-- **Inputs**: White background with 1px Outline border. On focus, border switches to 2px Matte Brass.
-- **Cards**: Pure Alabaster containers with 1px Outline borders. No shadows.
-- **Progress Bars**: Alabaster track with Matte Brass fill. 0px radius.
-- **Etch Lines**: 1px Deep Crimson horizontal rules used as section dividers.
+- **Buttons — all pills**: Primary buttons are filled Blue with white
+  text. Secondary buttons are Blue Container chips with Blue text
+  (sky blue chip). "全部停止" uses a soft rose chip; the add-download
+  dialog has no cancel button — the window close (X) and Esc dismiss
+  it. Icon buttons (✕ / ↻) are 28px and render as circles.
+- **Icons**: Small glyphs use [lucide](https://lucide.dev) icons
+  pre-rendered to transparent PNGs (`assets/icons/`, loaded via
+  `yt_dlp_gui.icons`): folder-open on the 浏览… buttons, chevron-down
+  on the format OptionMenu (stock triangle removed), chevron-down/up
+  on the log toggle. 16px logical, rendered at 96px for crisp HiDPI.
+- **Inputs**: Soft gray wells (#f1f2f8), 12px corners, hairline border,
+  40px tall for primary URL entry.
+- **Cards**: Pure white tiles, 16px corners, 1px hairline border. The
+  add-download dialog is one large card holding the whole form.
+- **Progress Bars**: 8px tube tracks in separator gray, filled Blue,
+  pill ends. Color shifts to mint on completion, rose on error.
+- **Status Dots**: 15px colored circles next to each list item —
+  slate for queued, amber for parsing, Blue for downloading, mint for
+  finished, rose for error.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** use generous whitespace. Every element should breathe.
-- **Do** use uppercase Inter with heavy tracking for labels and metadata.
-- **Do** use Deep Crimson only for etch lines and error states.
+
+- **Do** keep every button pill-shaped — radius 999 everywhere.
+- **Do** use pastel chips for secondary actions; flat text buttons feel
+  unfinished in this system.
+- **Do** give everything room to breathe — 16px minimum inner padding.
 
 ### Don't:
-- **Don't** use rounded corners. 0px is a strict rule.
-- **Don't** use drop shadows. Depth comes from borders and tonal stacking.
-- **Don't** use bright or saturated colors beyond Brass and Crimson.
+
+- **Don't** use drop shadows — depth comes from mist-vs-white contrast.
+- **Don't** use pure black (#000000) or pure red (#ff0000) — Ink and
+  Rose are softer on purpose.
+- **Don't** square anything off — if a corner is less than 12px, it
+  belongs to a different design system.

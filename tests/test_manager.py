@@ -1,10 +1,11 @@
 """Regression tests for the DownloadManager queue.
 
 These cover the bugs the old index-based manager had:
- 1. Tasks submitted after the queue drained once were never started
-    (_current_index kept growing past the queue).
- 2. Cancelling one task killed the whole queue and left the rest stuck.
- 3. A queued (not yet started) task could not really be cancelled.
+
+1. Tasks submitted after the queue drained once were never started
+   (``_current_index`` kept growing past the queue).
+2. Cancelling one task killed the whole queue and left the rest stuck.
+3. A queued (not yet started) task could not really be cancelled.
 """
 from __future__ import annotations
 
@@ -57,8 +58,7 @@ class FakeDownloader:
 class Harness:
     def __init__(self):
         self.lock = threading.Lock()
-        self.events = []          # (task_id, url, state)
-        self.downloads = []       # (task_id, FakeDownloader)
+        self.events: list[tuple[str, str, DownloadState]] = []
         self.factory_calls = 0
 
     def factory(self, on_progress):
@@ -84,9 +84,7 @@ class Harness:
 
 @pytest.fixture
 def harness():
-    h = Harness()
-    yield h
-    # Ensure no worker threads linger between tests.
+    return Harness()
 
 
 @pytest.fixture
@@ -101,7 +99,8 @@ def params(url):
     return {"url": url, "save_path": "/tmp"}
 
 
-# ─── The big one ───────────────────────────────────────────────────────────────
+# ─── The big regression ───────────────────────────────────────────────────────
+
 
 def test_task_submitted_after_queue_drains_still_runs(manager, harness):
     """Regression: the old manager skipped everything added after a drain."""
@@ -119,7 +118,6 @@ def test_tasks_run_sequentially_in_fifo_order(manager, harness):
     for tid in ids:
         assert harness.wait_for(tid, DownloadState.FINISHED), harness.events
 
-    # Every task reports EXTRACTING at least once, all finish exactly once.
     for tid in ids:
         states = harness.states_for(tid)
         assert states.count(DownloadState.FINISHED) == 1
@@ -129,23 +127,25 @@ def test_many_rapid_submissions_all_run(manager, harness):
     """Hammering submit() from the UI thread must not lose or duplicate tasks."""
     ids = [manager.submit(params(f"U{i}")) for i in range(30)]
     for tid in ids:
-        assert harness.wait_for(tid, DownloadState.FINISHED, timeout=15), harness.events
+        assert harness.wait_for(tid, DownloadState.FINISHED, timeout=15), \
+            harness.events
     assert harness.factory_calls == 30
 
 
 # ─── Cancellation ──────────────────────────────────────────────────────────────
 
+
 def test_cancel_queued_task_does_not_affect_current(manager, harness):
     """Cancel a waiting task: it never starts, the current one finishes fine."""
     a = manager.submit(params("A"))
-    # Wait until A is actually downloading.
     assert harness.wait_for(a, DownloadState.DOWNLOADING)
     b = manager.submit(params("B"))
 
     manager.cancel(b)
     assert harness.wait_for(b, DownloadState.CANCELLED)
     time.sleep(0.1)
-    assert DownloadState.EXTRACTING not in harness.states_for(b), "B started despite cancel"
+    assert DownloadState.EXTRACTING not in harness.states_for(b), \
+        "B started despite cancel"
     assert manager.pending_count == 0
 
     assert harness.wait_for(a, DownloadState.FINISHED), harness.events
@@ -159,7 +159,6 @@ def test_cancel_current_task_does_not_kill_queue(manager, harness):
 
     manager.cancel(a)
     assert harness.wait_for(a, DownloadState.CANCELLED), harness.events
-    # B must still run to completion.
     assert harness.wait_for(b, DownloadState.FINISHED), harness.events
 
 
@@ -187,7 +186,15 @@ def test_cancel_unknown_task_id_is_noop(manager, harness):
     assert harness.wait_for(a, DownloadState.FINISHED), harness.events
 
 
+def test_cancel_all_on_empty_queue_is_noop(manager, harness):
+    """cancel_all() with nothing pending must not raise nor emit events."""
+    manager.cancel_all()
+    assert harness.events == []
+    assert manager.pending_count == 0
+
+
 # ─── Misc ──────────────────────────────────────────────────────────────────────
+
 
 def test_submit_returns_distinct_task_ids(manager, harness):
     id1 = manager.submit(params("same"))
@@ -201,7 +208,6 @@ def test_start_is_idempotent_single_worker(manager, harness):
     manager.start()
     a = manager.submit(params("A"))
     assert harness.wait_for(a, DownloadState.FINISHED)
-    # Exactly one downloader per task, despite repeated start() calls.
     assert harness.factory_calls == 1
 
 
@@ -209,8 +215,69 @@ def test_shutdown_stops_worker(manager, harness):
     a = manager.submit(params("A"))
     assert harness.wait_for(a, DownloadState.DOWNLOADING)
     manager.shutdown()
-    # Worker thread should exit; pending tasks submitted after are ignored.
     worker = manager._worker
     if worker is not None:
         worker.join(timeout=5)
         assert not worker.is_alive()
+
+
+def test_pending_count_starts_at_zero(manager, harness):
+    assert manager.pending_count == 0
+
+
+def test_current_task_id_updates(manager, harness):
+    """current_task_id reflects the active task and clears after it finishes."""
+    a = manager.submit(params("A"))
+    assert harness.wait_for(a, DownloadState.DOWNLOADING)
+    # While A is running, the current task id should match.
+    assert manager.current_task_id == a
+    assert harness.wait_for(a, DownloadState.FINISHED)
+    # After A finishes, current_task_id should be None again.
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline and manager.current_task_id is not None:
+        time.sleep(0.01)
+    assert manager.current_task_id is None
+
+
+# ─── Real Downloader integration (no network) ─────────────────────────────────
+
+
+def test_manager_with_real_downloader_handles_error(monkeypatch):
+    """The manager should route a yt-dlp DownloadError into an ERROR event.
+
+    We monkeypatch YoutubeDL so extract_info raises — no network needed.
+    """
+    import yt_dlp
+    import yt_dlp.utils
+
+    events: list[tuple[str, DownloadState]] = []
+    lock = threading.Lock()
+
+    def on_event(task_id, url, info):
+        with lock:
+            events.append((task_id, info.state))
+
+    class FakeYdl:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def extract_info(self, url, download=True):
+            raise yt_dlp.utils.DownloadError("boom")
+
+    monkeypatch.setattr(yt_dlp, "YoutubeDL", lambda opts: FakeYdl())
+
+    mgr = DownloadManager(on_event=on_event)
+    try:
+        task_id = mgr.submit({"url": "http://x", "save_path": "/tmp"})
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            with lock:
+                if any(s == DownloadState.ERROR for _, s in events):
+                    break
+            time.sleep(0.01)
+        assert any(s == DownloadState.ERROR for _, s in events), events
+    finally:
+        mgr.shutdown()

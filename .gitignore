@@ -27,5 +27,8 @@ Thumbs.db
 # PyInstaller
 *.spec.bak
 
+# pytest
+.pytest_cache/
+
 # Config (user-specific)
 config.json

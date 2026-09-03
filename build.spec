@@ -1,7 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec for yt-dlp-gui."""
 
-import sys
 from pathlib import Path
 
 block_cipher = None
@@ -13,7 +12,14 @@ a = Analysis(
     [str(ROOT / "src" / "yt_dlp_gui" / "__main__.py")],
     pathex=[str(ROOT / "src")],
     binaries=[],
-    datas=[],
+    datas=[
+        # Lucide icon PNGs — icons.py resolves these relative to the
+        # package, so they must ship inside the frozen bundle.
+        (
+            str(ROOT / "src" / "yt_dlp_gui" / "assets"),
+            "yt_dlp_gui/assets",
+        ),
+    ],
     hiddenimports=[
         "yt_dlp",
         "customtkinter",
@@ -24,6 +30,7 @@ a = Analysis(
         "yt_dlp_gui.widgets",
         "yt_dlp_gui.dialogs",
         "yt_dlp_gui.app",
+        "yt_dlp_gui.icons",
     ],
     hookspath=[],
     hooksconfig={},

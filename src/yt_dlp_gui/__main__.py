@@ -1,4 +1,4 @@
-"""Entry point for yt-dlp-gui."""
+"""Entry point for ``python -m yt_dlp_gui``."""
 
 from yt_dlp_gui.app import main
 

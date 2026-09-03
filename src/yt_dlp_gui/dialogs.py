@@ -1,23 +1,33 @@
 """
 Add-download dialog for yt-dlp-gui.
 
-Single-page popup with all parameters flat-laid:
-URL, format, subtitles, proxy, cookies, save path.
-Strictly rectangular, alabaster canvas, brass primary actions.
+Single-page popup with all parameters laid out flat:
+URL, format, subtitles, proxy, cookies, save path, playlist.
+
+SOFT_CARD "rounded card" style — lavender-mist canvas around one large
+white card holding the form, pill action buttons in the footer.
 """
 
 from __future__ import annotations
 
 import os
+
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-from .theme import theme, CORNER_RADIUS
-from .config import FORMAT_PRESETS, PLAYER_CLIENT_OPTIONS
-
-# Sentinel labels referenced by logic — keep in sync with config presets.
-_CUSTOM_FORMAT_LABEL = FORMAT_PRESETS[-1][0]  # "自定义"
-_DEFAULT_CLIENT_LABEL = PLAYER_CLIENT_OPTIONS[0][0]  # "默认 (web)"
+from .theme import theme, CORNER_RADIUS, CORNER_RADIUS_SM
+from .config import (
+    FORMAT_PRESETS,
+    CUSTOM_FORMAT_LABEL,
+    DEFAULT_FORMAT_PRESET,
+)
+from . import icons
+from .widgets import (
+    BrassButton,
+    EtchButton,
+    IconOptionMenu,
+    MonumentCaption,
+)
 
 
 class AddDownloadDialog(ctk.CTkToplevel):
@@ -31,204 +41,332 @@ class AddDownloadDialog(ctk.CTkToplevel):
         self._result: dict | None = None
 
         # ─── Window config ─────────────────────────────────────────────────
-        self.title("添加下载")
+        self.title("新建下载")
         self.configure(fg_color=theme.bg_primary)
-        self.geometry("520x640")
+        self.geometry("560x680")
         self.resizable(False, False)
 
-        # Center on parent
+        # Modal plumbing.
         self.transient(master)
         self.lift()
         self.focus_force()
+        # Esc dismisses the dialog (same as the window close button).
+        self.bind("<Escape>", lambda _e: self._on_cancel())
         # Take the modal grab only after the window is mapped — calling
         # grab_set() on a not-yet-viewable window raises TclError.
         self.after(150, self._safe_grab)
 
-        # ─── Main container ────────────────────────────────────────────────
+        # ─── Layout grid ───────────────────────────────────────────────────
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
-        # Column weight is what makes the content/footer stretch to the
-        # full window width — without it the dialog renders half-empty.
+        # Column weight stretches the content/footer to the window width.
         self.grid_columnconfigure(0, weight=1)
 
-        # Header — Etch line (3px crimson top border)
-        header = ctk.CTkFrame(self, fg_color=theme.accent_crimson, height=3, corner_radius=0)
+        # ─── Header ────────────────────────────────────────────────────────
+        # Transparent band on the mist canvas — title floats above the card.
+        header = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
 
-        # Scrollable content
+        ctk.CTkLabel(
+            header,
+            text="新建下载",
+            font=theme.font_title_2,
+            text_color=theme.text_primary,
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w", padx=24, pady=(18, 4))
+
+        MonumentCaption(
+            header, text="输入视频链接并选择下载选项"
+        ).grid(row=1, column=0, sticky="w", padx=24, pady=(0, 12))
+
+        # ─── Scrollable content ────────────────────────────────────────────
+        # One large white card holds the whole form.
         content = ctk.CTkScrollableFrame(
-            self, corner_radius=CORNER_RADIUS,
-            fg_color=theme.bg_card, border_color=theme.border_default, border_width=1,
+            self,
+            corner_radius=CORNER_RADIUS,
+            fg_color=theme.bg_card,
+            border_width=1,
+            border_color=theme.border_default,
         )
-        content.grid(row=1, column=0, sticky="nsew", padx=16, pady=(12, 8))
+        content.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 14))
         content.grid_columnconfigure(0, weight=1)
 
-        # ─── Section: URL ───────────────────────────────────────────────
-        self._add_section_header(content, "链接（URL）", 0)
-        self._url_entry = ctk.CTkEntry(
-            content, placeholder_text="https://www.youtube.com/watch?v=...",
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            border_color=theme.border_default, text_color=theme.text_primary,
-            font=theme.font_body, border_width=1, height=40,
-        )
-        self._url_entry.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._build_url_section(content)
+        self._build_format_section(content)
+        self._build_subtitle_section(content)
+        self._build_proxy_section(content)
+        self._build_cookies_section(content)
+        self._build_path_section(content)
+        self._build_playlist_section(content)
+        self._build_footer()
 
-        # ─── Section: Format ─────────────────────────────────────────────
-        self._add_section_header(content, "画质格式", 3)
-        # Show the label (not the raw format string) as the initial selection
-        saved_format = self._config.get("format", FORMAT_PRESETS[2][1])
-        initial_format_label = _CUSTOM_FORMAT_LABEL
+    # ─── Section builders ──────────────────────────────────────────────────────
+
+    _SECTION_ROWS = []  # filled in below to keep row counters in one place
+
+    def _next_row(self) -> int:
+        # Section headers consume two rows (label + spacer); each section
+        # asks for the next free row via this helper so the builders can
+        # be reordered without re-numbering everything.
+        self._row_cursor = getattr(self, "_row_cursor", -1) + 1
+        return self._row_cursor
+
+    def _add_section_header(self, parent, text: str) -> int:
+        """Add a soft section caption label above grouped controls.
+
+        Small semibold slate text — no underline, no dots. Returns the
+        row index of the *content* row (header_row + 1), so callers can
+        place their widgets without bookkeeping.
+        """
+        header_row = self._next_row()
+        ctk.CTkLabel(
+            parent,
+            text=text.upper(),
+            font=theme.font_caption_bold,
+            text_color=theme.text_secondary,
+            anchor="w",
+        ).grid(row=header_row, column=0, sticky="w", padx=16, pady=(14, 6))
+
+        return self._next_row()
+
+    # ── URL ──────────────────────────────────────────────────────────────────
+    def _build_url_section(self, content):
+        row = self._add_section_header(content, "链接（URL）")
+        self._url_entry = ctk.CTkEntry(
+            content,
+            placeholder_text="https://www.youtube.com/watch?v=...",
+            corner_radius=CORNER_RADIUS_SM,
+            fg_color=theme.bg_secondary,
+            border_color=theme.border_default,
+            text_color=theme.text_primary,
+            placeholder_text_color=theme.text_tertiary,
+            font=theme.font_body,
+            border_width=1,
+            height=40,
+        )
+        self._url_entry.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 6))
+
+    # ── Format ───────────────────────────────────────────────────────────────
+    def _build_format_section(self, content):
+        row = self._add_section_header(content, "画质格式")
+
+        saved_format = self._config.get("format")
+        initial_label = CUSTOM_FORMAT_LABEL
         for label, spec in FORMAT_PRESETS:
             if spec == saved_format:
-                initial_format_label = label
+                initial_label = label
                 break
-        self._format_var = ctk.StringVar(value=initial_format_label)
-        self._format_menu = ctk.CTkOptionMenu(
-            content, values=[p[0] for p in FORMAT_PRESETS],
+        else:
+            initial_label = DEFAULT_FORMAT_PRESET
+
+        self._format_var = ctk.StringVar(value=initial_label)
+        self._format_menu = IconOptionMenu(
+            content,
+            icon=icons.chevron_down_slate(),
+            values=[p[0] for p in FORMAT_PRESETS],
             variable=self._format_var,
             command=self._on_format_change,
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            button_color=theme.accent_brass, button_hover_color=theme.accent_crimson,
-            text_color=theme.text_primary, font=theme.font_body,
+            corner_radius=CORNER_RADIUS_SM,
+            fg_color=theme.bg_secondary,
+            button_color=theme.bg_secondary,
+            button_hover_color=theme.bg_hover,
+            text_color=theme.text_primary,
+            dropdown_fg_color=theme.bg_card,
+            font=theme.font_body,
         )
-        self._format_menu.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._format_menu.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 6))
 
-        # Custom format entry (hidden by default)
+        # Custom format entry — hidden unless the custom preset is selected.
         self._custom_format_entry = ctk.CTkEntry(
-            content, placeholder_text="自定义格式串（如 bv[height<=720]+ba/best）",
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            border_color=theme.border_default, text_color=theme.text_primary,
-            font=theme.font_body, border_width=1, height=36,
+            content,
+            placeholder_text="自定义格式串（如 bv[height<=720]+ba/best）",
+            corner_radius=CORNER_RADIUS_SM,
+            fg_color=theme.bg_secondary,
+            border_color=theme.border_default,
+            text_color=theme.text_primary,
+            placeholder_text_color=theme.text_tertiary,
+            font=theme.font_body,
+            border_width=1,
+            height=36,
         )
-        self._custom_format_entry.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 16))
+        custom_row = self._next_row()
+        self._custom_format_entry.grid(
+            row=custom_row, column=0, sticky="ew", padx=16, pady=(0, 6),
+        )
         self._custom_format_entry.grid_remove()
-        if initial_format_label == _CUSTOM_FORMAT_LABEL:
+        if initial_label == CUSTOM_FORMAT_LABEL:
             self._custom_format_entry.grid()
-            self._custom_format_entry.insert(0, saved_format)
+            if saved_format:
+                self._custom_format_entry.insert(0, saved_format)
 
-        # ─── Section: Subtitles ──────────────────────────────────────────
-        self._add_section_header(content, "字幕", 7)
-        self._write_subs_var = ctk.BooleanVar(value=self._config.get("write_subtitles", True))
-        self._write_auto_var = ctk.BooleanVar(value=self._config.get("write_auto_subs", True))
-        self._embed_subs_var = ctk.BooleanVar(value=self._config.get("embed_subtitles", True))
+    # ── Subtitles ────────────────────────────────────────────────────────────
+    def _build_subtitle_section(self, content):
+        row = self._add_section_header(content, "字幕")
+
+        self._write_subs_var = ctk.BooleanVar(
+            value=bool(self._config.get("write_subtitles", True)),
+        )
+        self._write_auto_var = ctk.BooleanVar(
+            value=bool(self._config.get("write_auto_subs", True)),
+        )
+        self._embed_subs_var = ctk.BooleanVar(
+            value=bool(self._config.get("embed_subtitles", True)),
+        )
 
         chk_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
-        chk_frame.grid(row=9, column=0, sticky="ew", padx=16, pady=(0, 4))
-
+        chk_frame.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 8))
         for i, (text, var) in enumerate([
             ("下载字幕", self._write_subs_var),
             ("含自动生成", self._write_auto_var),
             ("嵌入视频", self._embed_subs_var),
         ]):
             ctk.CTkCheckBox(
-                chk_frame, text=text, variable=var,
-                corner_radius=CORNER_RADIUS, border_width=2,
-                fg_color=theme.accent_brass, hover_color=theme.accent_crimson,
-                text_color=theme.text_primary, font=theme.font_body_sm,
-            ).grid(row=0, column=i, padx=(0, 12))
+                chk_frame,
+                text=text,
+                variable=var,
+                corner_radius=8,
+                border_width=2,
+                fg_color=theme.accent_blue,
+                hover_color=theme.accent_blue_hover,
+                border_color=theme.border_strong,
+                text_color=theme.text_primary,
+                font=theme.font_body_sm,
+            ).grid(row=0, column=i, padx=(0, 16))
 
+        lang_row = self._next_row()
         self._subs_lang_entry = ctk.CTkEntry(
-            content, placeholder_text="zh-Hans,zh-Hant,en,ja",
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            border_color=theme.border_default, text_color=theme.text_primary,
-            font=theme.font_body, border_width=1, height=36,
+            content,
+            placeholder_text="zh-Hans,zh-Hant,en,ja",
+            corner_radius=CORNER_RADIUS_SM,
+            fg_color=theme.bg_secondary,
+            border_color=theme.border_default,
+            text_color=theme.text_primary,
+            placeholder_text_color=theme.text_tertiary,
+            font=theme.font_body,
+            border_width=1,
+            height=36,
         )
-        self._subs_lang_entry.grid(row=10, column=0, sticky="ew", padx=16, pady=(0, 16))
-        self._subs_lang_entry.insert(0, self._config.get("subtitle_langs", "zh-Hans,zh-Hant,en,ja"))
+        self._subs_lang_entry.grid(
+            row=lang_row, column=0, sticky="ew", padx=16, pady=(0, 6),
+        )
+        self._subs_lang_entry.insert(
+            0, self._config.get("subtitle_langs", "zh-Hans,zh-Hant,en,ja"),
+        )
 
-        # ─── Section: Proxy ──────────────────────────────────────────────
-        self._add_section_header(content, "代理", 11)
+    # ── Proxy ────────────────────────────────────────────────────────────────
+    def _build_proxy_section(self, content):
+        row = self._add_section_header(content, "代理")
         self._proxy_entry = ctk.CTkEntry(
-            content, placeholder_text="socks5h://127.0.0.1:7897（留空则直连）",
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            border_color=theme.border_default, text_color=theme.text_primary,
-            font=theme.font_body, border_width=1, height=36,
+            content,
+            placeholder_text="http://127.0.0.1:7897（留空则直连）",
+            corner_radius=CORNER_RADIUS_SM,
+            fg_color=theme.bg_secondary,
+            border_color=theme.border_default,
+            text_color=theme.text_primary,
+            placeholder_text_color=theme.text_tertiary,
+            font=theme.font_body,
+            border_width=1,
+            height=36,
         )
-        self._proxy_entry.grid(row=13, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self._proxy_entry.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 6))
         if self._config.get("proxy"):
             self._proxy_entry.insert(0, self._config["proxy"])
 
-        # ─── Section: Cookies ────────────────────────────────────────────
-        self._add_section_header(content, "Cookies", 14)
+    # ── Cookies ──────────────────────────────────────────────────────────────
+    def _build_cookies_section(self, content):
+        row = self._add_section_header(content, "Cookies")
         cookies_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
-        cookies_frame.grid(row=16, column=0, sticky="ew", padx=16, pady=(0, 16))
+        cookies_frame.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 6))
         cookies_frame.grid_columnconfigure(0, weight=1)
 
         self._cookies_entry = ctk.CTkEntry(
-            cookies_frame, placeholder_text="cookies.txt 文件路径",
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            border_color=theme.border_default, text_color=theme.text_primary,
-            font=theme.font_body, border_width=1, height=36,
+            cookies_frame,
+            placeholder_text="cookies.txt 文件路径",
+            corner_radius=CORNER_RADIUS_SM,
+            fg_color=theme.bg_secondary,
+            border_color=theme.border_default,
+            text_color=theme.text_primary,
+            placeholder_text_color=theme.text_tertiary,
+            font=theme.font_body,
+            border_width=1,
+            height=36,
         )
         self._cookies_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         if self._config.get("cookies_path"):
             self._cookies_entry.insert(0, self._config["cookies_path"])
 
-        from .widgets import EtchButton
-        EtchButton(cookies_frame, text="浏览…", width=80, height=36,
-                   command=self._browse_cookies).grid(row=0, column=1)
+        EtchButton(
+            cookies_frame, text="", width=84, height=36,
+            image=icons.browse_icon(),
+            command=self._browse_cookies,
+        ).grid(row=0, column=1)
 
-        # ─── Section: Save Path ──────────────────────────────────────────
-        self._add_section_header(content, "保存到", 17)
+    # ── Save path ────────────────────────────────────────────────────────────
+    def _build_path_section(self, content):
+        row = self._add_section_header(content, "保存到")
         path_frame = ctk.CTkFrame(content, fg_color="transparent", corner_radius=0)
-        path_frame.grid(row=19, column=0, sticky="ew", padx=16, pady=(0, 16))
+        path_frame.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 6))
         path_frame.grid_columnconfigure(0, weight=1)
 
         self._path_entry = ctk.CTkEntry(
             path_frame,
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            border_color=theme.border_default, text_color=theme.text_primary,
-            font=theme.font_body, border_width=1, height=36,
+            corner_radius=CORNER_RADIUS_SM,
+            fg_color=theme.bg_secondary,
+            border_color=theme.border_default,
+            text_color=theme.text_primary,
+            font=theme.font_body,
+            border_width=1,
+            height=36,
         )
         self._path_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
-        self._path_entry.insert(0, self._config.get("save_path", os.path.expanduser("~/Downloads")))
+        self._path_entry.insert(
+            0,
+            self._config.get(
+                "save_path", os.path.expanduser("~/Downloads"),
+            ),
+        )
 
-        EtchButton(path_frame, text="浏览…", width=80, height=36,
-                   command=self._browse_path).grid(row=0, column=1)
+        EtchButton(
+            path_frame, text="", width=84, height=36,
+            image=icons.browse_icon(),
+            command=self._browse_path,
+        ).grid(row=0, column=1)
 
-        # ─── Section: Playlist ───────────────────────────────────────────
-        self._add_section_header(content, "播放列表", 20)
-        self._playlist_var = ctk.BooleanVar(value=bool(self._config.get("download_playlist", False)))
+    # ── Playlist ─────────────────────────────────────────────────────────────
+    def _build_playlist_section(self, content):
+        row = self._add_section_header(content, "播放列表")
+        self._playlist_var = ctk.BooleanVar(
+            value=bool(self._config.get("download_playlist", False)),
+        )
         ctk.CTkCheckBox(
-            content, text="下载整个播放列表（不勾选则只下载单个视频）",
+            content,
+            text="下载整个播放列表（不勾选则只下载单个视频）",
             variable=self._playlist_var,
-            corner_radius=CORNER_RADIUS, border_width=2,
-            fg_color=theme.accent_brass, hover_color=theme.accent_crimson,
-            text_color=theme.text_primary, font=theme.font_body_sm,
-        ).grid(row=22, column=0, sticky="w", padx=16, pady=(0, 16))
+            corner_radius=8,
+            border_width=2,
+            fg_color=theme.accent_blue,
+            hover_color=theme.accent_blue_hover,
+            border_color=theme.border_strong,
+            text_color=theme.text_primary,
+            font=theme.font_body_sm,
+        ).grid(row=row, column=0, sticky="w", padx=16, pady=(0, 14))
 
-        # ─── Section: Player Client (Advanced) ──────────────────────────
-        self._add_section_header(content, "播放器客户端", 23)
-        saved_client = self._config.get("player_client", "web")
-        client_label = next(
-            (label for label, value in PLAYER_CLIENT_OPTIONS if value == saved_client),
-            _DEFAULT_CLIENT_LABEL,
-        )
-        self._player_var = ctk.StringVar(value=client_label)
-        self._player_menu = ctk.CTkOptionMenu(
-            content, values=[p[0] for p in PLAYER_CLIENT_OPTIONS],
-            variable=self._player_var,
-            corner_radius=CORNER_RADIUS, fg_color=theme.bg_input,
-            button_color=theme.accent_brass, button_hover_color=theme.accent_crimson,
-            text_color=theme.text_primary, font=theme.font_body,
-        )
-        self._player_menu.grid(row=25, column=0, sticky="ew", padx=16, pady=(0, 16))
-
-        # ─── Footer — Action buttons ────────────────────────────────────
+    # ── Footer ───────────────────────────────────────────────────────────────
+    def _build_footer(self):
         footer = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0, height=60)
-        footer.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 16))
+        footer.grid(row=2, column=0, sticky="ew", padx=24, pady=(0, 20))
         footer.grid_columnconfigure(0, weight=1)
 
-        from .widgets import BrassButton, DangerButton
+        # No explicit cancel button — the window close (X) and Esc both
+        # dismiss the dialog, so a duplicate 取消 chip was redundant.
+        BrassButton(
+            footer, text="添加到队列", width=160, height=40,
+            command=self._on_submit_click,
+        ).grid(row=0, column=0, sticky="e")
 
-        DangerButton(footer, text="取消", width=120, height=40,
-                     command=self._on_cancel).grid(row=0, column=0, sticky="w")
-
-        BrassButton(footer, text="添加到队列", width=160, height=40,
-                    command=self._on_submit_click).grid(row=0, column=1, sticky="e")
-
-    # ─── Helpers ────────────────────────────────────────────────────────────
+    # ─── Helpers ────────────────────────────────────────────────────────────────
 
     def _safe_grab(self):
         """Take the modal grab once the window is (probably) viewable."""
@@ -239,21 +377,9 @@ class AddDownloadDialog(ctk.CTkToplevel):
             # Window was closed before the grab fired — nothing to do.
             pass
 
-    def _add_section_header(self, parent, text: str, row: int):
-        """Add an uppercase label-caps section header with an etch underline."""
-        label = ctk.CTkLabel(
-            parent, text=text,
-            font=theme.font_label, text_color=theme.text_secondary,
-        )
-        label.grid(row=row, column=0, sticky="w", padx=16, pady=(8, 2))
-
-        # Etch underline — 1px crimson line (next row)
-        line = ctk.CTkFrame(parent, height=1, fg_color=theme.accent_crimson, corner_radius=0)
-        line.grid(row=row + 1, column=0, sticky="ew", padx=16, pady=(0, 4))
-
     def _on_format_change(self, value: str):
-        """Show/hide custom format entry based on preset selection."""
-        if value == _CUSTOM_FORMAT_LABEL:
+        """Show/hide the custom format entry based on the preset selection."""
+        if value == CUSTOM_FORMAT_LABEL:
             self._custom_format_entry.grid()
             self._custom_format_entry.focus_set()
         else:
@@ -274,38 +400,33 @@ class AddDownloadDialog(ctk.CTkToplevel):
             self._path_entry.delete(0, "end")
             self._path_entry.insert(0, path)
 
-    def _on_submit_click(self):
-        """Gather all parameters, validate, and call the submit callback."""
+    def _gather_result(self) -> dict | None:
+        """Validate the form and return the params dict, or None on failure."""
         url = self._url_entry.get().strip()
         if not url:
-            messagebox.showwarning(
-                "缺少链接", "请先输入视频链接。", parent=self,
-            )
+            messagebox.showwarning("缺少链接", "请先输入视频链接。", parent=self)
             self._url_entry.focus_set()
-            return
+            return None
 
         save_path = self._path_entry.get().strip()
         if not save_path:
-            messagebox.showwarning(
-                "缺少保存路径", "请选择下载文件夹。", parent=self,
-            )
-            return
+            messagebox.showwarning("缺少保存路径", "请选择下载文件夹。", parent=self)
+            return None
 
-        # Resolve format
-        preset_map = {p[0]: p[1] for p in FORMAT_PRESETS}
-        selected_format_label = self._format_var.get()
-        if selected_format_label == _CUSTOM_FORMAT_LABEL:
+        # Resolve format — preset map or custom string.
+        preset_map = dict(FORMAT_PRESETS)
+        selected_label = self._format_var.get()
+        if selected_label == CUSTOM_FORMAT_LABEL:
             format_spec = self._custom_format_entry.get().strip()
             if not format_spec:
                 format_spec = "bv[height<=1080]+ba/b[height<=1080]/best"
         else:
-            format_spec = preset_map.get(selected_format_label, FORMAT_PRESETS[2][1])
+            format_spec = preset_map.get(selected_label, preset_map[DEFAULT_FORMAT_PRESET])
 
-        # Resolve player client
-        player_client_map = {p[0]: p[1] for p in PLAYER_CLIENT_OPTIONS}
-        player_client = player_client_map.get(self._player_var.get(), "web")
+        # Resolve player client (kept as default "web" — UI removed).
+        player_client = "web"
 
-        self._result = {
+        return {
             "url": url,
             "save_path": save_path,
             "format_spec": format_spec,
@@ -316,11 +437,18 @@ class AddDownloadDialog(ctk.CTkToplevel):
             "write_auto_subs": self._write_auto_var.get(),
             "embed_subtitles": self._embed_subs_var.get(),
             "merge_output_format": "mp4",
-            "js_runtimes": "node",
+            # yt-dlp >= 2024.11 requires dict form {"node": {}}.
+            "js_runtimes": {"node": {}},
             "player_client": player_client,
             "download_playlist": self._playlist_var.get(),
         }
 
+    def _on_submit_click(self):
+        """Gather parameters, fire the submit callback, and close the dialog."""
+        result = self._gather_result()
+        if result is None:
+            return
+        self._result = result
         if self._on_submit:
             self._on_submit(self._result)
         self._grab_release_safe()

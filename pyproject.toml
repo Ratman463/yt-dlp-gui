@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yt-dlp-gui"
-version = "0.1.0"
+version = "0.2.0"
 description = "A monumental video archive interface for yt-dlp"
 readme = "README.md"
 license = {text = "MIT"}
@@ -12,7 +12,11 @@ requires-python = ">=3.10"
 dependencies = [
     "customtkinter>=5.2.0",
     "yt-dlp>=2024.1.0",
+    "yt_dlp_ejs>=0.1.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
 
 [project.scripts]
 yt-dlp-gui = "yt_dlp_gui:main"
